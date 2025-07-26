@@ -1,0 +1,46 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeverageDistributor.API", "BeverageDistributor.API\BeverageDistributor.API.csproj", "{775DE954-8C3D-4808-B4C9-71D751EE903B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeverageDistributor.Domain", "BeverageDistributor.Domain\BeverageDistributor.Domain.csproj", "{3DBC73E0-F050-4349-B877-A712EAE34D60}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeverageDistributor.Infrastructure", "BeverageDistributor.Infrastructure\BeverageDistributor.Infrastructure.csproj", "{D390BB38-F7DB-4223-96B0-014A0D1BEBE0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeverageDistributor.Application", "BeverageDistributor.Application\BeverageDistributor.Application.csproj", "{EEE33F1B-073D-4358-86C2-FA7191C0E6B9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeverageDistributor.Tests", "BeverageDistributor.Tests\BeverageDistributor.Tests.csproj", "{F5B30204-49E9-4356-9C30-C091584327B0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{775DE954-8C3D-4808-B4C9-71D751EE903B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{775DE954-8C3D-4808-B4C9-71D751EE903B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{775DE954-8C3D-4808-B4C9-71D751EE903B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{775DE954-8C3D-4808-B4C9-71D751EE903B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3DBC73E0-F050-4349-B877-A712EAE34D60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3DBC73E0-F050-4349-B877-A712EAE34D60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3DBC73E0-F050-4349-B877-A712EAE34D60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3DBC73E0-F050-4349-B877-A712EAE34D60}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D390BB38-F7DB-4223-96B0-014A0D1BEBE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D390BB38-F7DB-4223-96B0-014A0D1BEBE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D390BB38-F7DB-4223-96B0-014A0D1BEBE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D390BB38-F7DB-4223-96B0-014A0D1BEBE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EEE33F1B-073D-4358-86C2-FA7191C0E6B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EEE33F1B-073D-4358-86C2-FA7191C0E6B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EEE33F1B-073D-4358-86C2-FA7191C0E6B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EEE33F1B-073D-4358-86C2-FA7191C0E6B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F5B30204-49E9-4356-9C30-C091584327B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F5B30204-49E9-4356-9C30-C091584327B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F5B30204-49E9-4356-9C30-C091584327B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F5B30204-49E9-4356-9C30-C091584327B0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
