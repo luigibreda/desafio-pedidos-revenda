@@ -5,10 +5,10 @@ namespace BeverageDistributor.Domain.ValueObjects
 {
     public class PhoneNumber
     {
-        public string Number { get; private set; }
-        public bool IsMain { get; private set; }
+        public required string Number { get; set; }
+        public bool IsMain { get; set; }
 
-        protected PhoneNumber() { }
+        public PhoneNumber() { }
 
         public PhoneNumber(string number, bool isMain = false)
         {

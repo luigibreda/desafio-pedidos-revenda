@@ -4,17 +4,17 @@ namespace BeverageDistributor.Domain.ValueObjects
 {
     public class Address
     {
-        public string Street { get; private set; }
-        public string Number { get; private set; }
-        public string Complement { get; private set; }
-        public string Neighborhood { get; private set; }
-        public string City { get; private set; }
-        public string State { get; private set; }
-        public string Country { get; private set; }
-        public string PostalCode { get; private set; }
-        public bool IsMain { get; private set; }
+        public required string Street { get; set; }
+        public required string Number { get; set; }
+        public string? Complement { get; set; }
+        public required string Neighborhood { get; set; }
+        public required string City { get; set; }
+        public required string State { get; set; }
+        public required string Country { get; set; }
+        public required string PostalCode { get; set; }
+        public bool IsMain { get; set; }
 
-        protected Address() { }
+        public Address() { }
 
         public Address(string street, string number, string neighborhood, string city, 
                       string state, string country, string postalCode, string complement = "", bool isMain = false)

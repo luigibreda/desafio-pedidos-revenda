@@ -7,7 +7,7 @@ namespace BeverageDistributor.Domain.Interfaces
 {
     public interface IDistributorRepository
     {
-        Task<Distributor> GetByIdAsync(Guid id);
+        Task<Distributor?> GetByIdAsync(Guid id);
         Task<IEnumerable<Distributor>> GetAllAsync();
         Task<Distributor> AddAsync(Distributor distributor);
         Task UpdateAsync(Distributor distributor);

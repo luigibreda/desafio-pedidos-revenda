@@ -4,10 +4,10 @@ namespace BeverageDistributor.Domain.ValueObjects
 {
     public class ContactName
     {
-        public string Name { get; private set; }
-        public bool IsPrimary { get; private set; }
+        public required string Name { get; set; }
+        public bool IsPrimary { get; set; }
 
-        protected ContactName() { }
+        public ContactName() { }
 
         public ContactName(string name, bool isPrimary = false)
         {

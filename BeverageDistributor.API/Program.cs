@@ -1,3 +1,5 @@
+using BeverageDistributor.Application.Validators;
+using BeverageDistributor.Application;
 using BeverageDistributor.Application.Interfaces;
 using BeverageDistributor.Application.Services;
 using BeverageDistributor.Infrastructure;
@@ -14,8 +16,8 @@ var configuration = builder.Configuration;
 // Add Infrastructure Layer
 builder.Services.AddInfrastructure(configuration);
 
-// Add Application Services
-builder.Services.AddScoped<IDistributorService, DistributorService>();
+// Add Application Layer
+builder.Services.AddApplication();
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
@@ -24,7 +26,8 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddFluentValidationAutoValidation()
     .AddFluentValidationClientsideAdapters();
 
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+// Register validators from the Application layer
+builder.Services.AddValidatorsFromAssemblyContaining<CreateDistributorDtoValidator>();
 
 builder.Services.AddControllers();
 

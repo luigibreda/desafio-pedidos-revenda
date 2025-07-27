@@ -7,15 +7,15 @@ namespace BeverageDistributor.Domain.Entities
 {
     public class Distributor : BaseEntity
     {
-        public string Cnpj { get; private set; }
-        public string CompanyName { get; private set; }
-        public string TradingName { get; private set; }
-        public string Email { get; private set; }
+        public required string Cnpj { get; set; }
+        public required string CompanyName { get; set; }
+        public required string TradingName { get; set; }
+        public required string Email { get; set; }
         private readonly List<PhoneNumber> _phoneNumbers = new();
         private readonly List<ContactName> _contactNames = new();
         private readonly List<Address> _addresses = new();
 
-        protected Distributor() { }
+        public Distributor() { }
 
         public Distributor(string cnpj, string companyName, string tradingName, string email)
         {
@@ -88,7 +88,7 @@ namespace BeverageDistributor.Domain.Entities
             {
                 var currentPrimary = _contactNames.First(c => c.IsPrimary);
                 _contactNames.Remove(currentPrimary);
-                _contactNames.Add(new ContactName(currentPrimary.Name, false));
+                _contactNames.Add(new ContactName { Name = currentPrimary.Name, IsPrimary = false });
             }
             _contactNames.Add(contactName);
         }
@@ -99,17 +99,19 @@ namespace BeverageDistributor.Domain.Entities
             {
                 var currentMain = _addresses.First(a => a.IsMain);
                 _addresses.Remove(currentMain);
-                _addresses.Add(new Address(
-                    currentMain.Street,
-                    currentMain.Number,
-                    currentMain.Neighborhood,
-                    currentMain.City,
-                    currentMain.State,
-                    currentMain.Country,
-                    currentMain.PostalCode,
-                    currentMain.Complement,
-                    false
-                ));
+                var newAddress = new Address
+                {
+                    Street = currentMain.Street,
+                    Number = currentMain.Number,
+                    Neighborhood = currentMain.Neighborhood,
+                    City = currentMain.City,
+                    State = currentMain.State,
+                    Country = currentMain.Country,
+                    PostalCode = currentMain.PostalCode,
+                    Complement = currentMain.Complement,
+                    IsMain = false
+                };
+                _addresses.Add(newAddress);
             }
             _addresses.Add(address);
         }

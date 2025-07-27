@@ -18,28 +18,47 @@ namespace BeverageDistributor.Application.Mappings
                 .ForMember(dest => dest.Addresses, opt => opt.Ignore())
                 .AfterMap((src, dest) =>
                 {
-                    foreach (var phoneDto in src.PhoneNumbers)
+                    if (src.PhoneNumbers != null)
                     {
-                        dest.AddPhoneNumber(new PhoneNumber(phoneDto.Number, phoneDto.IsMain));
+                        foreach (var phoneDto in src.PhoneNumbers)
+                        {
+                            dest.AddPhoneNumber(new PhoneNumber 
+                            { 
+                                Number = phoneDto.Number, 
+                                IsMain = phoneDto.IsMain 
+                            });
+                        }
                     }
 
-                    foreach (var contactDto in src.ContactNames)
+                    if (src.ContactNames != null)
                     {
-                        dest.AddContactName(new ContactName(contactDto.Name, contactDto.IsPrimary));
+                        foreach (var contactDto in src.ContactNames)
+                        {
+                            dest.AddContactName(new ContactName 
+                            { 
+                                Name = contactDto.Name, 
+                                IsPrimary = contactDto.IsPrimary 
+                            });
+                        }
                     }
 
-                    foreach (var addressDto in src.Addresses)
+                    if (src.Addresses != null)
                     {
-                        dest.AddAddress(new Address(
-                            street: addressDto.Street,
-                            number: addressDto.Number,
-                            neighborhood: addressDto.Neighborhood,
-                            city: addressDto.City,
-                            state: addressDto.State,
-                            country: "Brasil",
-                            postalCode: addressDto.PostalCode,
-                            complement: addressDto.Complement ?? string.Empty,
-                            isMain: addressDto.IsMain));
+                        foreach (var addressDto in src.Addresses)
+                        {
+                            dest.AddAddress(new Address
+                            {
+                                Street = addressDto.Street,
+                                Number = addressDto.Number,
+                                Neighborhood = addressDto.Neighborhood,
+                                City = addressDto.City,
+                                State = addressDto.State,
+                                Country = "Brasil", // Valor padrão para o Brasil
+                                PostalCode = addressDto.PostalCode,
+                                Complement = addressDto.Complement,
+                                IsMain = addressDto.IsMain
+                            });
+                        }
                     }
                 });
         }
