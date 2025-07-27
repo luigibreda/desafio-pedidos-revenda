@@ -1,103 +1,147 @@
-# Sistema de Distribuição de Bebidas - Desafio Desenvolvedor Sênior
+# Sistema de Distribuição de Bebidas - AMBEV
 
-Um sistema completo para gerenciamento de pedidos de revendas de bebidas, desenvolvido em .NET 8.0 com arquitetura limpa e princípios de Domain-Driven Design (DDD).
+Sistema de gerenciamento de pedidos para revendas de bebidas, desenvolvido em .NET 8.0 seguindo princípios de Clean Architecture e Domain-Driven Design (DDD).
 
-## 🎯 Sobre o Desafio
+## 🎯 Sobre o Projeto
 
-Este projeto simula o fluxo real de pedidos de bebidas que as revendas fazem diariamente para a empresa. O sistema gerencia desde o cadastro das revendas até o processamento de pedidos dos clientes finais e integração com a API da distribuidora.
+Solução completa para o desafio de implementação de um sistema de pedidos para revendas da AMBEV, com foco em:
+- Recebimento de pedidos de clientes sem restrições de quantidade mínima
+- Consolidação e envio de pedidos para a AMBEV com regra de quantidade mínima de 1000 unidades
+- Garantia de entrega mesmo com falhas na API externa
 
-### Cenário de Negócio Implementado
+### Destaques da Solução
 
-1. **Cadastro de Revendas**: Sistema para gerenciamento de pedidos de revendas e clientes 
-2. **Recebimento de Pedidos**: API para que revendas recebam pedidos de seus clientes
-3. **Integração com Distribuidora**: Processamento e envio de pedidos consolidados
-4. **Resiliência**: Tratamento de falhas e garantia de que nenhum pedido seja perdido
+1. **Arquitetura Escalável**: Separação clara de responsabilidades entre camadas
+2. **Resiliência**: Tratamento robusto de falhas com retry e dead-letter queue
+3. **Observabilidade**: Logs estruturados e métricas para monitoramento
+4. **Documentação**: API documentada com Swagger/OpenAPI
 
 ## 🏗️ Arquitetura da Solução
+
+### Visão Geral da Arquitetura
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        BEVERAGE DISTRIBUTOR API                         │
+│                                                                         │
+│  ┌─────────────────┐     ┌─────────────────────┐     ┌──────────────┐  │
+│  │                 │     │                     │     │              │  │
+│  │  API Controller │◄───►│  OrderOrchestrator  │◄───►│  Order       │  │
+│  │                 │     │                     │     │  Processing  │  │
+│  └────────┬────────┘     └──────────┬──────────┘     └──────┬───────┘  │
+│           │                         │                       |          │
+│  ┌────────▼────────┐      ┌────────▼──────────┐    ┌────────▼───────┐  │
+│  │                 │      │                   │    │                │  │
+│  │  Swagger/       │      │  RabbitMQ         │    │  External     │  │
+│  │  Documentação   │      │  (Message Queue)  │    │  AMBEV API    │  │
+│  │                 │      │                   │    │                │  │
+│  └─────────────────┘      └───────────────────┘    └────────────────┘  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Fluxo de Processamento de Pedidos
+
+1. Cliente envia pedido via API REST
+2. `OrderOrchestrator` valida e persiste o pedido
+3. Pedido é publicado na fila para processamento assíncrono
+4. `OrderProcessingService` consome a mensagem e aplica regras de negócio
+5. Pedido é enviado para API da AMBEV com validação de quantidade mínima
+6. Em caso de falha, mensagem é movida para DLQ para análise posterior
 
 ### Estrutura do Projeto
 
 ```
-├── BeverageDistributor.API/          # Camada de Apresentação (Web API)
-├── BeverageDistributor.Application/  # Camada de Aplicação (Casos de Uso)
-├── BeverageDistributor.Domain/       # Camada de Domínio (Entidades e Regras)
-├── BeverageDistributor.Infrastructure/ # Camada de Infraestrutura
-└── BeverageDistributor.Tests/        # Testes Unitários e de Integração
+├── BeverageDistributor.API/          # API Controllers e configuração
+├── BeverageDistributor.Application/  # Casos de uso e DTOs
+├── BeverageDistributor.Domain/       # Entidades e regras de negócio
+├── BeverageDistributor.Infrastructure/ # Implementações concretas
+│   ├── Services/                     # Serviços de infraestrutura
+│   ├── Repositories/                 # Acesso a dados
+│   └── MessageBroker/                # Integração com RabbitMQ
+└── BeverageDistributor.Tests/        # Testes automatizados
 ```
-
-### Padrões e Princípios Aplicados
-
-- **Clean Architecture**: Separação clara de responsabilidades e inversão de dependências
-- **Domain-Driven Design (DDD)**: Modelagem rica do domínio com entidades, value objects e agregados
-- **SOLID**: Aplicação rigorosa dos princípios de design orientado a objetos
-- **Repository Pattern**: Abstração da camada de dados
-- **Command Query Separation**: Separação entre operações de leitura e escrita
-- **Event-Driven Architecture**: Comunicação assíncrona via eventos de domínio
 
 ## 🛠️ Tecnologias Utilizadas
 
-### Core Framework
-- **.NET 8.0**: Framework principal com as mais recentes funcionalidades
-- **ASP.NET Core Web API**: Para criação da API RESTful
-- **Entity Framework Core 8.0**: ORM com suporte completo ao PostgreSQL
+### Core
+- **.NET 8.0** com ASP.NET Core Web API
+- **Entity Framework Core 8.0** para acesso a dados
+- **FluentValidation** para validação de requisições
 
-### Banco de Dados e Mensageria
-- **PostgreSQL 13+**: Banco de dados principal com suporte a JSON e funcionalidades avançadas
-- **RabbitMQ**: Sistema de mensageria para processamento assíncrono
+### Infraestrutura
+- **PostgreSQL** como banco de dados principal
+- **RabbitMQ** para processamento assíncrono de pedidos
+- **Serilog** para logging estruturado
+- **Polly** para políticas de resiliência
 
-### Qualidade e Testes
-- **FluentValidation**: Validações expressivas e reutilizáveis
-- **xUnit**: Framework de testes unitários
-- **Moq**: Biblioteca para mocking em testes
-- **Testcontainers**: Testes de integração com containers
-
-### Observabilidade e Resiliência
-- **Serilog**: Logging estruturado com múltiplos sinks
-- **Polly**: Políticas de resiliência (retry, circuit breaker, timeout)
-- **Health Checks**: Monitoramento da saúde da aplicação
-- **Swagger/OpenAPI**: Documentação interativa da API
+### Qualidade
+- **xUnit** para testes unitários
+- **Moq** para mocks em testes
+- **Swagger/OpenAPI** para documentação da API
 
 ## 🚀 Como Executar
 
 ### Pré-requisitos
 
 - .NET 8.0 SDK
-- PostgreSQL 13 ou superior
-- Docker (para RabbitMQ e PostgreSQL opcional)
+- Docker e Docker Compose
 
-### Execução Local
+### Variáveis de Ambiente
+
+Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
+
+```ini
+# Banco de Dados PostgreSQL
+POSTGRES_DB=beverage_distributor
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+
+# RabbitMQ
+RABBITMQ_DEFAULT_USER=guest
+RABBITMQ_DEFAULT_PASS=guest
+
+# API Externa
+EXTERNAL_API__BASEURL=https://api.external-distributor.com
+EXTERNAL_API__ORDERENDPOINT=/api/orders
+EXTERNAL_API__APIKEY=your-api-key-here
+EXTERNAL_API__TIMEOUTSECONDS=30
+EXTERNAL_API__RETRYCOUNT=3
+EXTERNAL_API__CIRCUITBREAKERFAILURETHRESHOLD=0.5
+EXTERNAL_API__CIRCUITBREAKERSAMPLINGDURATIONSECONDS=60
+EXTERNAL_API__CIRCUITBREAKERMINIMUMTHROUGHPUT=10
+EXTERNAL_API__CIRCUITBREAKERDURATIONOFSECONDS=60
+
+# Processamento de Pedidos
+ORDERPROCESSING__MINORDERQUANTITY=1000
+ORDERPROCESSING__MAXRETRYATTEMPTS=3
+ORDERPROCESSING__RETRYDELAYSECONDS=5
+```
+
+Ou configure diretamente no arquivo `appsettings.json` na pasta `BeverageDistributor.API`.
+
+### Executando com Docker Compose
 
 1. **Clone o repositório**
    ```bash
    git clone <url-do-repositorio>
-   cd beverage-distributor
+   cd desafio-pedidos-revenda
    ```
 
-2. **Configure o banco de dados**
+2. **Inicie os containers**
    ```bash
-   # Atualize a connection string em appsettings.json
-   # Exemplo: "Host=localhost;Database=BeverageDistributor;Username=postgres;Password=password"
+   docker-compose up -d
    ```
 
-3. **Execute as migrações**
-   ```bash
-   cd BeverageDistributor.API
-   dotnet ef database update
-   ```
+3. **Acesse a aplicação**
+   - API: http://localhost:8080
+   - Swagger UI: http://localhost:8080/swagger
+   - RabbitMQ Management: http://localhost:15672 (guest/guest)
+   - PGAdmin: http://localhost:5050 (admin@admin.com/admin)
 
-4. **Inicie os serviços de infraestrutura**
-   ```bash
-   docker-compose -f docker-compose.infrastructure.yml up -d
-   ```
+### Configuração
 
-5. **Execute a aplicação**
-   ```bash
-   dotnet run --project BeverageDistributor.API
-   ```
-
-6. **Acesse a documentação**
-   - Swagger UI: https://localhost:5001/swagger
-   - Health Checks: https://localhost:5001/health
+As variáveis de ambiente podem ser configuradas no arquivo `.env` ou diretamente no `docker-compose.yml`.
 
 ### Execução com Docker
 
@@ -108,207 +152,238 @@ docker-compose up -d
 # A aplicação estará disponível em http://localhost:8080
 ```
 
-## 📋 Funcionalidades Implementadas
+## 📋 Funcionalidades Principais
 
-### 1. Gestão de Revendas
+### 1. Gestão de Pedidos
 
-#### Cadastro Completo com Validações
-- **CNPJ**: Validação de formato e dígitos verificadores
-- **Razão Social**: Obrigatório, validação de caracteres e tamanho
-- **Nome Fantasia**: Obrigatório com validações específicas
-- **Email**: Validação de formato RFC 5322
-- **Telefones**: Múltiplos telefones com validação de formato brasileiro
-- **Contatos**: Múltiplos contatos com definição de principal
-- **Endereços de Entrega**: Múltiplos endereços com validação de CEP
+#### Recebimento de Pedidos
+- Aceita pedidos de qualquer quantidade
+- Validação de dados de entrada
+- Resposta imediata com confirmação de recebimento
 
-#### Endpoints Disponíveis
+#### Processamento Assíncrono
+- Fila de mensagens com RabbitMQ
+- Validação de quantidade mínima (1000 unidades) apenas no envio para AMBEV
+- Dead-letter queue para tratamento de erros
+
+#### Endpoints Principais
 ```http
-POST   /api/v1/revendas              # Cadastrar revenda
-GET    /api/v1/revendas              # Listar revendas
-GET    /api/v1/revendas/{id}         # Buscar revenda por ID
-PUT    /api/v1/revendas/{id}         # Atualizar revenda
-DELETE /api/v1/revendas/{id}         # Remover revenda
+POST   /api/orders                    # Criar novo pedido
+GET    /api/orders                    # Listar todos os pedidos
+GET    /api/orders/{id}               # Buscar pedido por ID
+GET    /api/orders/client/{clientId}  # Buscar pedidos por cliente
 ```
 
-### 2. Sistema de Pedidos
+### 2. Observabilidade
 
-#### Recebimento de Pedidos dos Clientes
-- Identificação única do cliente
-- Lista de produtos com quantidades
-- Sem limite mínimo para pedidos da revenda
-- Resposta com ID do pedido e itens confirmados
+#### Logs Estruturados
+- Níveis de log configuráveis
+- Formato JSON para fácil análise
+- Rastreamento de erros com correlation ID
 
-#### Consolidação e Envio para Distribuidora
-- **Regra de Negócio**: Mínimo de 1000 unidades por pedido
-- **Agregação Inteligente**: Consolidação automática de produtos
-- **Resiliência**: Retry com backoff exponencial
-- **Garantia de Entrega**: Persistência local antes do envio
+#### Métricas
+- Health checks para monitoramento
+- Métricas de performance
+- Status da fila de mensagens
 
-#### Endpoints de Pedidos
-```http
-POST /api/v1/pedidos/clientes        # Receber pedido de cliente
-POST /api/v1/pedidos/processar       # Processar pedidos pendentes
-GET  /api/v1/pedidos                 # Listar pedidos
-GET  /api/v1/pedidos/{id}            # Buscar pedido específico
-```
+### 3. Resiliência
 
-## 🔧 Configurações e Ambiente
+- Retry automático em falhas de rede
+- Circuit breaker para evitar sobrecarga
+- Timeout configurável para chamadas externas
+
+## 🔧 Configuração
 
 ### Variáveis de Ambiente
 
 ```bash
 # Banco de Dados
-ConnectionStrings__DefaultConnection="Host=localhost;Database=BeverageDistributor;Username=postgres;Password=password"
+POSTGRES_DB=beverage_distributor
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 
 # RabbitMQ
-MessageBroker__Host="localhost"
-MessageBroker__Username="guest"
-MessageBroker__Password="guest"
+RABBITMQ_DEFAULT_USER=guest
+RABBITMQ_DEFAULT_PASS=guest
 
-# API Externa (Distribuidora)
-ExternalServices__DistributorApi__BaseUrl="https://api.distribuidor.com"
-ExternalServices__DistributorApi__ApiKey="sua-api-key"
-ExternalServices__DistributorApi__TimeoutSeconds=30
-
-# Configurações de Resiliência
-Resilience__RetryCount=3
-Resilience__CircuitBreaker__HandledEventsAllowedBeforeBreaking=5
+# Aplicação
+ASPNETCORE_ENVIRONMENT=Development
+ASPNETCORE_URLS=http://+:80
 ```
 
-### Configuração de Logging
+### Exemplo de Requisição
 
-```json
+```http
+POST /api/orders
+Content-Type: application/json
+
 {
-  "Serilog": {
-    "MinimumLevel": {
-      "Default": "Information",
-      "Override": {
-        "Microsoft": "Warning",
-        "System": "Warning"
-      }
-    },
-    "WriteTo": [
-      { "Name": "Console" },
-      { "Name": "File", "Args": { "path": "logs/app-.txt", "rollingInterval": "Day" } }
-    ]
-  }
+  "clientId": "cliente-123",
+  "items": [
+    {
+      "productId": "prod-001",
+      "productName": "Skol 350ml",
+      "quantity": 50,
+      "unitPrice": 2.50
+    }
+  ]
 }
 ```
 
+## 📸 Demonstração
+
+### 1. Swagger UI
+![Swagger UI](docs/endpoints.png)
+
+### 2. Logs de Observabilidade
+![Logs de Observabilidade](docs/observabilidade.png)
+
+### 3. Schemas
+![Schemas](docs/schemas.png)
+
+## 🎯 Pontos importantes
+
+### ✅ Implementado
+- [x] Modelagem de domínio para pedidos e itens
+- [x] Separação clara entre pedidos de clientes e envio para AMBEV
+- [x] Tratamento adequado da regra de quantidade mínima (1000 unidades)
+- [x] Código limpo e bem estruturado seguindo Clean Architecture
+- [x] Testes automatizados básicos
+- [x] Documentação básica da API
+- [x] Logging básico com níveis apropriados
+- [x] Health check básico para banco de dados
+- [x] Circuit breaker para chamadas à API externa
+- [x] Retry com backoff exponencial
+
+### ⚠️ Parcialmente Implementado
+- [~] Logs estruturados (formato texto, não JSON)
+- [~] Rastreabilidade de erros (básica, sem correlação automática)
+
+### ❌ Não Implementado
+- [ ] Métricas de performance detalhadas
+- [ ] Monitoramento de recursos
+- [ ] Health checks avançados (RabbitMQ, API externa)
+- [ ] Painel de monitoramento
+
 ## 🧪 Testes
 
-### Execução dos Testes
+### Executando os Testes
 
 ```bash
-# Todos os testes
 dotnet test
-
-# Apenas testes unitários
-dotnet test --filter Category=Unit
-
-# Apenas testes de integração
-dotnet test --filter Category=Integration
-
-# Com cobertura de código
-dotnet test --collect:"XPlat Code Coverage"
 ```
-
-### Cobertura de Testes
-
-O projeto mantém alta cobertura de testes com foco em:
-
-- **Testes Unitários**: Lógica de domínio e casos de uso
-- **Testes de Integração**: APIs e persistência de dados
-- **Testes de Contrato**: Validação de contratos de API
-- **Testes de Resiliência**: Cenários de falha e recuperação
 
 ## 📊 Observabilidade
 
 ### Health Checks
 
-A aplicação possui health checks configurados para:
+A aplicação possui health checks básicos configurados:
 
-- **Banco de Dados**: Conectividade com PostgreSQL
-- **Message Broker**: Status do RabbitMQ
-- **APIs Externas**: Disponibilidade da API da distribuidora
-- **Dependências**: Status geral do sistema
+- ✅ **Banco de Dados**: Verificação de conectividade com PostgreSQL
+- ❌ **Message Broker**: Status do RabbitMQ (não implementado)
+- ❌ **APIs Externas**: Disponibilidade da API da distribuidora (não implementado)
+- ❌ **Dependências**: Status geral do sistema (apenas banco de dados implementado)
 
-Acesse: `GET /health` para verificação básica ou `GET /health/detailed` para informações completas.
+Acesse: `GET /health` para verificação básica de saúde da aplicação.
 
 ### Logging Estruturado
 
-Implementação completa de logging com:
+A aplicação utiliza o sistema de logging integrado do ASP.NET Core com as seguintes características:
 
-- **Correlação de Requisições**: Tracking end-to-end
-- **Contexto de Negócio**: Logs enriquecidos com dados relevantes
-- **Níveis Apropriados**: Debug, Information, Warning, Error, Critical
-- **Structured Logging**: Formato JSON para análise automatizada
+- ✅ **Níveis de Log**: Suporte a Debug, Information, Warning, Error, Critical
+- ✅ **Contexto de Negócio**: Logs incluem informações relevantes do pedido
+- ⚠️ **Correlação de Requisições**: Implementação básica via logs manuais
+- ❌ **Formato JSON**: Logs em formato de texto simples (não estruturado em JSON)
+
+Exemplo de log implementado:
+```
+[Information] Tentativa 1 de envio do pedido à API externa. Motivo: 500
+[Warning] Circuito aberto por 60000ms devido a: 500 Internal Server Error
+[Information] Circuito fechado, as requisições serão permitidas novamente
+```
 
 ### Métricas e Monitoramento
 
-- **Request/Response Timing**: Tempo de resposta das APIs
-- **Error Rates**: Taxa de erro por endpoint
-- **Business Metrics**: Métricas específicas do negócio (pedidos processados, etc.)
-- **Resource Usage**: Utilização de CPU, memória e conexões
+A aplicação possui monitoramento básico com as seguintes limitações:
 
-## 🔄 Fluxo de Integração
+- ❌ **Request/Response Timing**: Não implementado
+- ❌ **Error Rates**: Apenas contagem básica via logs
+- ❌ **Business Metrics**: Não implementado
+- ❌ **Resource Usage**: Não implementado
+
+**Observação**: A implementação atual se baseia principalmente em logs para monitoramento, mas, basta aumentar a cobertura, fiz apenas um exemplo. 
 
 ### Tratamento de Indisponibilidade da API Externa
 
 1. **Detecção de Falha**: Circuit breaker monitora falhas consecutivas
 2. **Armazenamento Local**: Pedidos são persistidos localmente
 3. **Retry com Backoff**: Tentativas com intervalos exponenciais
-4. **Notificação**: Alertas automáticos para equipe de operações
-5. **Recuperação**: Processamento automático quando serviço volta
+4. **Recuperação**: Processamento automático quando serviço volta
 
-### Políticas de Resiliência
+## 🚀 Melhorias Futuras
 
-```csharp
-// Exemplo de configuração Polly
-var retryPolicy = Policy
-    .Handle<HttpRequestException>()
-    .WaitAndRetryAsync(
-        retryCount: 3,
-        sleepDurationProvider: retryAttempt => 
-            TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-        onRetry: (outcome, timespan, retryCount, context) =>
-        {
-            _logger.LogWarning("Tentativa {RetryCount} em {Delay}s", 
-                retryCount, timespan.TotalSeconds);
-        });
-```
+### Prioridade Alta
 
-## 📈 Melhorias Futuras
+1. **Sistema de Notificações**
+   - Alertas em tempo real para falhas críticas
+   - Notificações para a equipe de operações
+   - Dashboard de status do sistema
 
-- **CQRS**: Implementação completa com Event Sourcing
-- **Microsserviços**: Decomposição em serviços especializados
-- **Cache Distribuído**: Redis para performance
-- **API Gateway**: Centralização de cross-cutting concerns
-- **Kubernetes**: Orquestração e scaling automático
+2. **Monitoramento Avançado**
+   - Integração com Prometheus/Grafana
+   - Métricas detalhadas de performance
+   - Health checks abrangentes (RabbitMQ, API externa)
+
+3. **Logs Estruturados**
+   - Formato JSON para melhor análise
+   - Correlação automática de requisições
+   - Integração com ferramentas como ELK ou Seq
+
+### Prioridade Média
+
+4. **Processamento em Lote**
+   - Agrupar pedidos por distribuidor
+   - Otimizar chamadas à API externa
+   - Processar em lotes baseado em tempo/quantidade
+
+5. **Autenticação e Autorização**
+   - Autenticação JWT
+   - Controle de acesso baseado em roles
+   - Rate limiting
+
+### Prioridade Baixa
+
+6. **Arquitetura Avançada**
+   - Migração para CQRS/Event Sourcing
+   - Decomposição em microsserviços
+   - Cache distribuído com Redis
+   - API Gateway
+   - Orquestração com Kubernetes
 
 ## 🤝 Considerações Técnicas
 
 ### Escolhas Arquiteturais
 
 1. **DDD sobre CQRS**: Optei por DDD puro devido ao tempo limitado, mas a arquitetura permite evolução para CQRS facilmente
-2. **Inglês no Código**: Mantive o código em inglês por preferência pessoal, mas posso adaptar ao padrão da empresa
-3. **PostgreSQL**: Escolhido pela robustez e suporte a JSON para dados semi-estruturados
-4. **RabbitMQ**: Garantia de entrega e durabilidade de mensagens
+## 🏆 Considerações Finais
 
-### Padrões de Código
+### Decisões de Projeto
 
-- **Nomenclatura Consistente**: PascalCase para C#, camelCase para JSON
-- **Documentação XML**: Documentação completa para IntelliSense
-- **EditorConfig**: Padronização de estilo de código
-- **Conventional Commits**: Padrão para mensagens de commit
+1. **Arquitetura em Camadas**
+   - Separação clara de responsabilidades
+   - Fácil manutenção e evolução
+   - Testabilidade aprimorada
 
-## 📞 Suporte
+2. **Resiliência**
+   - Tratamento robusto de falhas
+   - Garantia de entrega das mensagens
+   - Recuperação automática
 
-Para dúvidas sobre a implementação ou decisões arquiteturais, consulte:
+3. **Escalabilidade**
+   - Processamento assíncrono
+   - Baixo acoplamento entre serviços
+   - Fácil escalabilidade horizontal
 
-- **Documentação da API**: Swagger UI em `/swagger`
-- **Logs da Aplicação**: Diretório `logs/`
-- **Health Checks**: Endpoint `/health/detailed`
 
 ---
 
