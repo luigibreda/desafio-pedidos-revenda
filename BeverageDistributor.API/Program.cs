@@ -1,3 +1,6 @@
+using System.Net.Http.Headers;
+using System.Text;
+using BeverageDistributor.Application.Mappings;
 using BeverageDistributor.Application.Validators;
 using BeverageDistributor.Application;
 using BeverageDistributor.Application.Interfaces;
@@ -6,9 +9,15 @@ using BeverageDistributor.Domain.Interfaces;
 using BeverageDistributor.Infrastructure;
 using BeverageDistributor.Infrastructure.Persistence;
 using BeverageDistributor.Infrastructure.Repositories;
+using BeverageDistributor.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Polly;
+using Polly.CircuitBreaker;
+using Polly.Retry;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,8 +30,12 @@ builder.Services.AddInfrastructure(configuration);
 // Add Application Layer
 builder.Services.AddApplication();
 
-// Add AutoMapper
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+// Add AutoMapper with explicit profile registration
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddProfile<MappingProfile>();
+    cfg.AddProfile<OrderProfile>();
+}, AppDomain.CurrentDomain.GetAssemblies());
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation()
@@ -35,6 +48,37 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderDtoValidator>();
 // Register Order services
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+
+// Register Integration services
+builder.Services.Configure<ExternalApiSettings>(configuration.GetSection("ExternalApi"));
+builder.Services.Configure<RabbitMqSettings>(configuration.GetSection("RabbitMq"));
+builder.Services.Configure<OrderProcessingSettings>(configuration.GetSection("OrderProcessing"));
+
+// Configure HTTP Client with basic retry policy
+builder.Services.AddHttpClient<IExternalOrderService, ExternalOrderService>((serviceProvider, client) =>
+{
+    var settings = serviceProvider.GetRequiredService<IOptions<ExternalApiSettings>>().Value;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    
+    if (!string.IsNullOrEmpty(settings.ApiKey))
+    {
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
+    }
+});
+
+// Register RabbitMQ producer
+builder.Services.AddSingleton<IMessageProducer, RabbitMqProducer>();
+
+// Register Order Orchestrator
+builder.Services.AddScoped<IOrderOrchestratorService, OrderOrchestratorService>();
+
+// Register Order Processing Service as a hosted service
+builder.Services.AddHostedService<OrderProcessingService>();
+
+// Register Cache Service
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<ICacheService, CacheService>();
 
 builder.Services.AddControllers();
 
@@ -82,5 +126,7 @@ using (var scope = app.Services.CreateScope())
         logger.LogError(ex, "An error occurred while migrating or initializing the database.");
     }
 }
+
+
 
 app.Run();

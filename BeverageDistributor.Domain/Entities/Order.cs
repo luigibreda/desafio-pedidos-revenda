@@ -99,8 +99,8 @@ namespace BeverageDistributor.Domain.Entities
 
         public void Cancel()
         {
-            if (Status == OrderStatus.Completed || Status == OrderStatus.Cancelled)
-                throw new DomainException("Cannot cancel an order that is already completed or cancelled");
+            if (Status == OrderStatus.Completed)
+                throw new DomainException("Cannot cancel a completed order");
 
             Status = OrderStatus.Cancelled;
         }
@@ -108,6 +108,31 @@ namespace BeverageDistributor.Domain.Entities
         private void UpdateTotalAmount()
         {
             TotalAmount = _items.Sum(i => i.TotalPrice);
+        }
+
+        public void UpdateStatus(string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                throw new DomainException("Status is required");
+
+            switch (status.ToLower())
+            {
+                case "pending":
+                    if (Status != OrderStatus.Pending)
+                        throw new DomainException("Cannot set status back to Pending");
+                    break;
+                case "processing":
+                    Process();
+                    break;
+                case "completed":
+                    Complete();
+                    break;
+                case "cancelled":
+                    Cancel();
+                    break;
+                default:
+                    throw new DomainException($"Invalid status: {status}");
+            }
         }
     }
 }

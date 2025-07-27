@@ -24,11 +24,10 @@ namespace BeverageDistributor.Application.Services
 
         public async Task<DistributorResponseDto> CreateAsync(CreateDistributorDto createDto)
         {
-            // Check if a distributor with the same CNPJ already exists
             var existingDistributor = await _distributorRepository.GetByCnpjAsync(createDto.Cnpj);
             if (existingDistributor != null)
             {
-                throw new InvalidOperationException($"A distributor with CNPJ {createDto.Cnpj} already exists.");
+                throw new InvalidOperationException($"Distribuidor com CNPJ {createDto.Cnpj} já existe.");
             }
 
             var distributor = new Distributor
@@ -39,7 +38,6 @@ namespace BeverageDistributor.Application.Services
                 Email = createDto.Email
             };
 
-            // Mapear telefones, contatos e endereços
             if (createDto.PhoneNumbers != null)
             {
                 foreach (var phoneDto in createDto.PhoneNumbers)
@@ -76,7 +74,7 @@ namespace BeverageDistributor.Application.Services
                         Neighborhood = addressDto.Neighborhood,
                         City = addressDto.City,
                         State = addressDto.State,
-                        Country = "Brasil", // Definindo Brasil como valor padrão
+                        Country = "Brasil",
                         PostalCode = addressDto.PostalCode,
                         IsMain = addressDto.IsMain
                     });
@@ -97,7 +95,7 @@ namespace BeverageDistributor.Application.Services
         {
             var distributor = await _distributorRepository.GetByIdAsync(id);
             if (distributor == null)
-                throw new KeyNotFoundException($"Distributor with ID {id} not found");
+                throw new KeyNotFoundException($"Distribuidor com ID {id} não encontrado");
                 
             return _mapper.Map<DistributorResponseDto>(distributor);
         }
@@ -106,15 +104,13 @@ namespace BeverageDistributor.Application.Services
         {
             var distributor = await _distributorRepository.GetByIdAsync(id);
             if (distributor == null)
-                throw new KeyNotFoundException($"Distributor with ID {id} not found");
+                throw new KeyNotFoundException($"Distribuidor com ID {id} não encontrado");
 
-            // Atualiza apenas os campos fornecidos
             if (updateDto.Cnpj != null && updateDto.Cnpj != distributor.Cnpj)
             {
-                // Verifica se o novo CNPJ já existe
                 var existingDistributor = await _distributorRepository.GetByCnpjAsync(updateDto.Cnpj);
                 if (existingDistributor != null && existingDistributor.Id != id)
-                    throw new InvalidOperationException($"A distributor with CNPJ {updateDto.Cnpj} already exists.");
+                    throw new InvalidOperationException($"Distribuidor com CNPJ {updateDto.Cnpj} já existe.");
                 
                 distributor.SetCnpj(updateDto.Cnpj);
             }
@@ -128,10 +124,8 @@ namespace BeverageDistributor.Application.Services
             if (updateDto.Email != null)
                 distributor.SetEmail(updateDto.Email);
 
-            // Atualiza telefones, se fornecidos
             if (updateDto.PhoneNumbers != null)
             {
-                // Cria uma nova coleção de telefones
                 var phoneNumbers = new List<PhoneNumber>();
                 foreach (var phoneDto in updateDto.PhoneNumbers)
                 {
@@ -141,14 +135,11 @@ namespace BeverageDistributor.Application.Services
                         IsMain = phoneDto.IsMain 
                     });
                 }
-                // Atualiza a coleção de telefones do distribuidor
                 distributor.UpdatePhoneNumbers(phoneNumbers);
             }
 
-            // Atualiza contatos, se fornecidos
             if (updateDto.ContactNames != null)
             {
-                // Cria uma nova coleção de contatos
                 var contactNames = new List<ContactName>();
                 foreach (var contactDto in updateDto.ContactNames)
                 {
@@ -158,14 +149,11 @@ namespace BeverageDistributor.Application.Services
                         IsPrimary = contactDto.IsPrimary 
                     });
                 }
-                // Atualiza a coleção de contatos do distribuidor
                 distributor.UpdateContactNames(contactNames);
             }
 
-            // Atualiza endereços, se fornecidos
             if (updateDto.Addresses != null)
             {
-                // Cria uma nova coleção de endereços
                 var addresses = new List<Address>();
                 foreach (var addressDto in updateDto.Addresses)
                 {
@@ -182,7 +170,6 @@ namespace BeverageDistributor.Application.Services
                         IsMain = addressDto.IsMain
                     });
                 }
-                // Atualiza a coleção de endereços do distribuidor
                 distributor.UpdateAddresses(addresses);
             }
 

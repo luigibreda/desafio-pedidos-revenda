@@ -8,8 +8,8 @@ namespace BeverageDistributor.Application.Validators
         public UpdateOrderStatusDtoValidator()
         {
             RuleFor(x => x.Status)
-                .NotEmpty().WithMessage("Status is required")
-                .Must(BeAValidStatus).WithMessage("Invalid status. Valid values are: 'processing', 'completed', 'cancelled'");
+                .NotEmpty().WithMessage("Status é obrigatório")
+                .Must(BeAValidStatus).WithMessage("Status inválido. Valores válidos: 'processing', 'completed', 'cancelled'");
         }
 
         private bool BeAValidStatus(string status)

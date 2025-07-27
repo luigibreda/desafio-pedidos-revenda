@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace BeverageDistributor.Application.Services
 {
@@ -19,153 +20,168 @@ namespace BeverageDistributor.Application.Services
         private readonly IDistributorRepository _distributorRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<OrderService> _logger;
+        private readonly ICacheService _cache;
 
         public OrderService(
             IOrderRepository orderRepository,
             IDistributorRepository distributorRepository,
             IMapper mapper,
-            ILogger<OrderService> logger)
+            ILogger<OrderService> logger,
+            ICacheService cache)
         {
             _orderRepository = orderRepository ?? throw new ArgumentNullException(nameof(orderRepository));
             _distributorRepository = distributorRepository ?? throw new ArgumentNullException(nameof(distributorRepository));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _cache = cache ?? throw new ArgumentNullException(nameof(cache));
         }
 
         public async Task<OrderResponseDto> CreateAsync(CreateOrderDto createDto)
         {
-            _logger.LogInformation("Creating new order for distributor {DistributorId} and client {ClientId}", 
+            _logger.LogInformation("Criando novo pedido para distribuidor {DistributorId} e cliente {ClientId}", 
                 createDto.DistributorId, createDto.ClientId);
 
-            // Verifica se o distribuidor existe
-            var distributor = await _distributorRepository.GetByIdAsync(createDto.DistributorId);
+            // Verifica o cache primeiro para o distribuidor
+            var distributorCacheKey = $"distributor_{createDto.DistributorId}";
+            var distributor = await _cache.GetOrCreateAsync(
+                distributorCacheKey,
+                async () => 
+                {
+                    _logger.LogDebug("Cache miss for distributor: {DistributorId}", createDto.DistributorId);
+                    return await _distributorRepository.GetByIdAsync(createDto.DistributorId);
+                },
+                TimeSpan.FromMinutes(30));
+
             if (distributor == null)
             {
-                _logger.LogWarning("Distributor with ID {DistributorId} not found", createDto.DistributorId);
-                throw new KeyNotFoundException($"Distributor with ID {createDto.DistributorId} not found");
+                _logger.LogWarning("Distribuidor com ID {DistributorId} não encontrado", createDto.DistributorId);
+                throw new KeyNotFoundException($"Distribuidor com ID {createDto.DistributorId} não encontrado");
             }
 
-            // Cria o pedido
             var order = new Order(createDto.DistributorId, createDto.ClientId);
 
-            // Adiciona os itens ao pedido
             foreach (var itemDto in createDto.Items)
             {
-                order.AddItem(
-                    itemDto.ProductId,
-                    itemDto.ProductName,
-                    itemDto.Quantity,
-                    itemDto.UnitPrice);
+                order.AddItem(itemDto.ProductId, itemDto.ProductName, itemDto.Quantity, itemDto.UnitPrice);
             }
 
-            // Verifica se o pedido atende ao mínimo de 1000 unidades
-            var totalItems = order.Items.Sum(i => i.Quantity);
-            if (totalItems < 1000)
-            {
-                _logger.LogWarning("Order does not meet the minimum of 1000 units. Total units: {TotalUnits}", totalItems);
-                throw new DomainException("The order must contain at least 1000 units in total.");
-            }
-
-            // Salva o pedido
             var createdOrder = await _orderRepository.AddAsync(order);
-            _logger.LogInformation("Order created successfully with ID {OrderId}", createdOrder.Id);
+            _logger.LogInformation("Pedido {OrderId} criado com sucesso para o cliente {ClientId}", 
+                createdOrder.Id, createdOrder.ClientId);
 
-            return MapToOrderResponseDto(createdOrder, distributor);
+            // Invalida os caches relacionados
+            _cache.Remove($"orders_distributor_{createDto.DistributorId}");
+            _cache.Remove($"orders_client_{createDto.ClientId}");
+
+            return _mapper.Map<OrderResponseDto>(createdOrder);
         }
 
         public async Task<OrderResponseDto> GetByIdAsync(Guid id)
         {
-            _logger.LogInformation("Fetching order with ID {OrderId}", id);
+            var cacheKey = $"order_{id}";
             
-            var order = await _orderRepository.GetByIdAsync(id);
-            if (order == null)
+            try
             {
-                _logger.LogWarning("Order with ID {OrderId} not found", id);
-                throw new KeyNotFoundException($"Order with ID {id} not found");
-            }
+                var orderDto = await _cache.GetOrCreateAsync(
+                    cacheKey,
+                    async () => 
+                    {
+                        _logger.LogDebug("Cache miss for order ID: {OrderId}", id);
+                        var order = await _orderRepository.GetByIdAsync(id);
+                        if (order == null)
+                        {
+                            _logger.LogWarning("Pedido com ID {OrderId} não encontrado", id);
+                            throw new KeyNotFoundException($"Pedido com ID {id} não encontrado");
+                        }
+                        return _mapper.Map<OrderResponseDto>(order);
+                    },
+                    TimeSpan.FromMinutes(15)); // Cache por 15 minutos
 
-            return MapToOrderResponseDto(order, order.Distributor);
+                return orderDto;
+            }
+            catch (KeyNotFoundException)
+            {
+                // Remove do cache se o pedido não for encontrado para evitar cache de resultados negativos
+                _cache.Remove(cacheKey);
+                throw;
+            }
         }
 
         public async Task<IEnumerable<OrderResponseDto>> GetByDistributorIdAsync(Guid distributorId)
         {
-            _logger.LogInformation("Fetching orders for distributor {DistributorId}", distributorId);
+            var cacheKey = $"orders_distributor_{distributorId}";
             
-            var orders = await _orderRepository.GetByDistributorIdAsync(distributorId);
-            return orders.Select(o => MapToOrderResponseDto(o, o.Distributor));
+            return await _cache.GetOrCreateAsync(
+                cacheKey,
+                async () => 
+                {
+                    _logger.LogDebug("Cache miss for distributor orders: {DistributorId}", distributorId);
+                    var orders = await _orderRepository.GetByDistributorIdAsync(distributorId);
+                    return _mapper.Map<IEnumerable<OrderResponseDto>>(orders);
+                },
+                TimeSpan.FromMinutes(10)); // Cache por 10 minutos
         }
 
         public async Task<IEnumerable<OrderResponseDto>> GetByClientIdAsync(string clientId)
         {
-            _logger.LogInformation("Fetching orders for client {ClientId}", clientId);
+            var cacheKey = $"orders_client_{clientId}";
             
-            var orders = await _orderRepository.GetByClientIdAsync(clientId);
-            return orders.Select(o => MapToOrderResponseDto(o, o.Distributor));
+            return await _cache.GetOrCreateAsync(
+                cacheKey,
+                async () => 
+                {
+                    _logger.LogDebug("Cache miss for client orders: {ClientId}", clientId);
+                    var orders = await _orderRepository.GetByClientIdAsync(clientId);
+                    return _mapper.Map<IEnumerable<OrderResponseDto>>(orders);
+                },
+                TimeSpan.FromMinutes(10)); // Cache por 10 minutos
         }
 
         public async Task<OrderResponseDto> UpdateStatusAsync(Guid id, UpdateOrderStatusDto updateDto)
         {
-            _logger.LogInformation("Updating status for order {OrderId} to {Status}", id, updateDto.Status);
-            
             var order = await _orderRepository.GetByIdAsync(id);
             if (order == null)
             {
-                _logger.LogWarning("Order with ID {OrderId} not found", id);
-                throw new KeyNotFoundException($"Order with ID {id} not found");
+                _logger.LogWarning("Pedido com ID {OrderId} não encontrado para atualização", id);
+                throw new KeyNotFoundException($"Pedido com ID {id} não encontrado");
             }
 
-            // Atualiza o status do pedido com base no status fornecido
-            switch (updateDto.Status.ToLower())
-            {
-                case "processing":
-                    order.Process();
-                    break;
-                case "completed":
-                    order.Complete();
-                    break;
-                case "cancelled":
-                    order.Cancel();
-                    break;
-                default:
-                    throw new DomainException($"Invalid status: {updateDto.Status}");
-            }
-
+            order.UpdateStatus(updateDto.Status);
             await _orderRepository.UpdateAsync(order);
-            _logger.LogInformation("Order {OrderId} status updated to {Status}", id, order.Status);
+            _logger.LogInformation("Status do pedido {OrderId} atualizado para {Status}", id, updateDto.Status);
 
-            return MapToOrderResponseDto(order, order.Distributor);
+            // Atualiza o cache para este pedido
+            var cacheKey = $"order_{id}";
+            _cache.Remove(cacheKey); // Remove o cache antigo
+            
+            // Invalida os caches de listagem
+            _cache.Remove($"orders_distributor_{order.DistributorId}");
+            _cache.Remove($"orders_client_{order.ClientId}");
+
+            return _mapper.Map<OrderResponseDto>(order);
         }
 
         public async Task<bool> DeleteAsync(Guid id)
         {
-            _logger.LogInformation("Deleting order with ID {OrderId}", id);
-            
             var order = await _orderRepository.GetByIdAsync(id);
             if (order == null)
             {
-                _logger.LogWarning("Order with ID {OrderId} not found for deletion", id);
+                _logger.LogWarning("Tentativa de excluir pedido inexistente: {OrderId}", id);
                 return false;
             }
 
-            // Apenas permite a exclusão de pedidos pendentes
-            if (order.Status != OrderStatus.Pending)
-            {
-                _logger.LogWarning("Cannot delete order {OrderId} with status {Status}", id, order.Status);
-                throw new DomainException("Only pending orders can be deleted");
-            }
-
-            await _orderRepository.DeleteAsync(id);
-            _logger.LogInformation("Order {OrderId} deleted successfully", id);
+            // Remove o pedido do cache antes de excluir
+            _cache.Remove($"order_{id}");
+            _cache.Remove($"orders_distributor_{order.DistributorId}");
+            _cache.Remove($"orders_client_{order.ClientId}");
             
+            // Agora remove do repositório
+            await _orderRepository.DeleteAsync(id);
+            _logger.LogInformation("Pedido {OrderId} excluído com sucesso", id);
+
             return true;
         }
 
-        private OrderResponseDto MapToOrderResponseDto(Order order, Distributor distributor)
-        {
-            var dto = _mapper.Map<OrderResponseDto>(order);
-            dto.DistributorName = distributor?.TradingName ?? string.Empty;
-            dto.Status = order.Status.ToString();
-            return dto;
-        }
+        // O mapeamento agora é feito diretamente pelo AutoMapper através do perfil de mapeamento
     }
 }
