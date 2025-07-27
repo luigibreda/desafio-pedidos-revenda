@@ -76,7 +76,8 @@ namespace BeverageDistributor.Tests.Domain.Entities
             var order = new Order(_distributorId, _clientId);
             order.AddItem(_productId, ProductName, Quantity, UnitPrice);
 
-            var exception = Assert.Throws<DomainException>(() => order.UpdateStatus(null));
+            string? nullStatus = null;
+            var exception = Assert.Throws<DomainException>(() => order.UpdateStatus(nullStatus!));
             Assert.Equal("Status is required", exception.Message);
         }
 

@@ -62,6 +62,17 @@ namespace BeverageDistributor.Application.Services
 
                 ValidateOrder(order);
 
+                var totalQuantity = order.Items.Sum(item => item.Quantity);
+                _logger.LogInformation("Validando quantidade total do pedido: {TotalQuantity} unidades", totalQuantity);
+                
+                if (totalQuantity < 1000)
+                {
+                    _logger.LogWarning("Pedido rejeitado: quantidade total {TotalQuantity} é menor que o mínimo de 1000 unidades", totalQuantity);
+                    throw new ValidationException("O pedido deve conter no mínimo 1000 unidades no total");
+                }
+                
+                _logger.LogInformation("Validação de quantidade mínima aprovada: {TotalQuantity} unidades", totalQuantity);
+
                 var createdOrder = await _orderService.CreateAsync(createOrderDto);
 
                 var externalOrder = new ExternalOrderRequestDto
