@@ -10,7 +10,15 @@ namespace BeverageDistributor.Application.Mappings
     {
         public MappingProfile()
         {
-            CreateMap<Distributor, DistributorResponseDto>();
+            CreateMap<Distributor, DistributorResponseDto>()
+                .ForMember(dest => dest.PhoneNumbers, opt => opt.MapFrom(src => src.PhoneNumbers))
+                .ForMember(dest => dest.ContactNames, opt => opt.MapFrom(src => src.ContactNames))
+                .ForMember(dest => dest.Addresses, opt => opt.MapFrom(src => src.Addresses));
+            
+            // Mapeamentos para os DTOs de valor
+            CreateMap<PhoneNumber, PhoneNumberDto>();
+            CreateMap<ContactName, ContactNameDto>();
+            CreateMap<Address, AddressDto>();
             
             CreateMap<CreateDistributorDto, Distributor>()
                 .ForMember(dest => dest.PhoneNumbers, opt => opt.Ignore())

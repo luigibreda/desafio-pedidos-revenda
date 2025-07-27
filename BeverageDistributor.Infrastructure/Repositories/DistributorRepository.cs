@@ -53,6 +53,16 @@ namespace BeverageDistributor.Infrastructure.Repositories
                 .FirstOrDefaultAsync(d => d.Id == id);
         }
 
+        public async Task<Distributor?> GetByCnpjAsync(string cnpj)
+        {
+            return await _context.Distributors
+                .AsNoTracking()
+                .Include(d => d.PhoneNumbers)
+                .Include(d => d.ContactNames)
+                .Include(d => d.Addresses)
+                .FirstOrDefaultAsync(d => d.Cnpj == cnpj);
+        }
+
         public async Task UpdateAsync(Distributor distributor)
         {
             _context.Entry(distributor).State = EntityState.Modified;

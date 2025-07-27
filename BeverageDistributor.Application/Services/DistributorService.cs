@@ -23,6 +23,13 @@ namespace BeverageDistributor.Application.Services
 
         public async Task<DistributorResponseDto> CreateAsync(CreateDistributorDto createDto)
         {
+            // Check if a distributor with the same CNPJ already exists
+            var existingDistributor = await _distributorRepository.GetByCnpjAsync(createDto.Cnpj);
+            if (existingDistributor != null)
+            {
+                throw new InvalidOperationException($"A distributor with CNPJ {createDto.Cnpj} already exists.");
+            }
+
             var distributor = new Distributor
             {
                 Cnpj = createDto.Cnpj,

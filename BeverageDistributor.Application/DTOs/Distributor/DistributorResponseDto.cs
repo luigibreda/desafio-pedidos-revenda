@@ -1,3 +1,5 @@
+using BeverageDistributor.Application.DTOs;
+
 namespace BeverageDistributor.Application.DTOs.Distributor
 {
     public class DistributorResponseDto
