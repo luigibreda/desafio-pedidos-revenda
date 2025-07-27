@@ -288,7 +288,7 @@ Content-Type: application/json
 ![Swagger UI](docs/endpoints.png)
 
 ### 2. Logs de Observabilidade
-![Logs de Observabilidade](docs/observabilidade.png)
+![Logs de Observabilidade](docs/logs.png)
 
 ### 3. Schemas
 ![Schemas](docs/schemas.png)
