@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using BeverageDistributor.Application.Mappings;
 using BeverageDistributor.Application.Validators;
 using BeverageDistributor.Application;
@@ -17,15 +19,62 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
+using OpenTelemetry;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
+using Prometheus;
 using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var configuration = builder.Configuration;
+
+// Configuração básica do OpenTelemetry
+var resourceBuilder = ResourceBuilder.CreateDefault()
+    .AddService(serviceName: "BeverageDistributor.API",
+                serviceVersion: "1.0.0",
+                serviceInstanceId: Environment.MachineName);
+
+// Cria um ActivitySource para rastreamento personalizado
+var activitySource = new ActivitySource("BeverageDistributor.API");
+
+// Configuração simplificada do OpenTelemetry - usando apenas APIs estáveis
+var tracerProvider = Sdk.CreateTracerProviderBuilder()
+    .AddSource("BeverageDistributor.API")
+    .AddSource("BeverageDistributor.Application")
+    .AddSource("BeverageDistributor.Infrastructure")
+    .SetResourceBuilder(resourceBuilder)
+    .AddAspNetCoreInstrumentation()
+    .AddConsoleExporter()
+    .Build();
+
+// Configuração simplificada de métricas
+var meter = new Meter("BeverageDistributor.API");
+var meterProvider = Sdk.CreateMeterProviderBuilder()
+    .SetResourceBuilder(resourceBuilder)
+    .AddMeter("BeverageDistributor.API")
+    .AddMeter("BeverageDistributor.Application")
+    .AddMeter("BeverageDistributor.Infrastructure")
+    .AddConsoleExporter()
+    .Build();
+var ordersProcessed = meter.CreateCounter<long>("orders_processed", "Number of orders processed");
+var orderProcessingTime = meter.CreateHistogram<double>("order_processing_time_seconds", "Time to process an order");
+var activeOrders = meter.CreateUpDownCounter<int>("active_orders", "Number of active orders");
+
+// Register the meter and metrics as singletons
+builder.Services.AddSingleton(meter);
+builder.Services.AddSingleton(ordersProcessed);
+builder.Services.AddSingleton(orderProcessingTime);
+builder.Services.AddSingleton(activeOrders);
+
+// Register the metrics service
+builder.Services.AddScoped<IMetricsService, MetricsService>();
 
 // Add Infrastructure Layer
 builder.Services.AddInfrastructure(configuration);
@@ -146,7 +195,7 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -159,6 +208,12 @@ if (app.Environment.IsDevelopment())
 
 // Add health check endpoint
 app.MapHealthChecks("/health");
+
+// Simple metrics endpoint
+app.MapGet("/metrics", async context =>
+{
+    await context.Response.WriteAsync("Metrics are currently only available through the console exporter in this version.");
+});
 
 app.UseHttpsRedirection();
 

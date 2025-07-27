@@ -25,15 +25,18 @@ namespace BeverageDistributor.API.Controllers
         private readonly IOrderService _orderService;
         private readonly IOrderOrchestratorService _orderOrchestrator;
         private readonly ILogger<OrdersController> _logger;
+        private readonly IMetricsService _metricsService;
 
         public OrdersController(
             IOrderService orderService,
             IOrderOrchestratorService orderOrchestrator,
-            ILogger<OrdersController> logger)
+            ILogger<OrdersController> logger,
+            IMetricsService metricsService)
         {
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _orderOrchestrator = orderOrchestrator ?? throw new ArgumentNullException(nameof(orderOrchestrator));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _metricsService = metricsService ?? throw new ArgumentNullException(nameof(metricsService));
         }
 
         /// <summary>
@@ -59,13 +62,13 @@ namespace BeverageDistributor.API.Controllers
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.LogWarning(ex, "Order not found: {Message}", ex.Message);
+                _logger.LogWarning(ex, "Recurso não encontrado: {Message}", ex.Message);
                 return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching order: {Message}", ex.Message);
-                return StatusCode(500, "An error occurred while processing your request.");
+                _logger.LogError(ex, "Erro ao buscar pedido: {Message}", ex.Message);
+                return StatusCode(500, "Ocorreu um erro ao processar sua solicitação.");
             }
         }
 
@@ -90,8 +93,8 @@ namespace BeverageDistributor.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching orders by distributor: {Message}", ex.Message);
-                return StatusCode(500, "An error occurred while processing your request.");
+                _logger.LogError(ex, "Erro ao buscar pedidos do distribuidor: {Message}", ex.Message);
+                return StatusCode(500, "Ocorreu um erro ao processar sua solicitação.");
             }
         }
 
@@ -116,8 +119,8 @@ namespace BeverageDistributor.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching orders by client: {Message}", ex.Message);
-                return StatusCode(500, "An error occurred while processing your request.");
+                _logger.LogError(ex, "Erro ao buscar pedidos do cliente: {Message}", ex.Message);
+                return StatusCode(500, "Ocorreu um erro ao processar sua solicitação.");
             }
         }
 
@@ -139,20 +142,42 @@ namespace BeverageDistributor.API.Controllers
             [FromBody, Required(ErrorMessage = "Os dados do pedido são obrigatórios")]
             CreateOrderDto createDto)
         {
+            _metricsService.TrackActiveOrder(1, new KeyValuePair<string, object?>("status", "processing"));
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            
             try
             {
                 _logger.LogInformation("Iniciando criação de pedido para o distribuidor {DistributorId}", createDto.DistributorId);
                 
-                // Cria o pedido usando o serviço de orquestração para processamento assíncrono
                 var order = await _orderOrchestrator.ProcessOrderAsync(createDto, createDto.DistributorId.ToString());
                 
                 _logger.LogInformation("Pedido {OrderId} criado com sucesso e enviado para processamento", order.Id);
+                
+                stopwatch.Stop();
+                _metricsService.RecordOrderProcessingTime(stopwatch.Elapsed.TotalSeconds, 
+                    new KeyValuePair<string, object?>("status", "success"),
+                    new KeyValuePair<string, object?>("distributor_id", createDto.DistributorId));
+                _metricsService.IncrementOrdersProcessed(1, 
+                    new KeyValuePair<string, object?>("status", "success"),
+                    new KeyValuePair<string, object?>("distributor_id", createDto.DistributorId));
+                _metricsService.TrackActiveOrder(-1, new KeyValuePair<string, object?>("status", "processing"));
+                _metricsService.TrackActiveOrder(1, new KeyValuePair<string, object?>("status", "completed"));
                 
                 return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
             }
             catch (KeyNotFoundException ex)
             {
                 _logger.LogWarning(ex, "Recurso não encontrado: {Message}", ex.Message);
+                
+                stopwatch.Stop();
+                _metricsService.RecordOrderProcessingTime(stopwatch.Elapsed.TotalSeconds, 
+                    new KeyValuePair<string, object?>("status", "error"),
+                    new KeyValuePair<string, object?>("error_type", "not_found"));
+                _metricsService.IncrementOrdersProcessed(1, 
+                    new KeyValuePair<string, object?>("status", "error"),
+                    new KeyValuePair<string, object?>("error_type", "not_found"));
+                _metricsService.TrackActiveOrder(-1, new KeyValuePair<string, object?>("status", "processing"));
+                
                 return NotFound(new ProblemDetails
                 {
                     Title = "Recurso não encontrado",
@@ -163,6 +188,16 @@ namespace BeverageDistributor.API.Controllers
             catch (ValidationException ex)
             {
                 _logger.LogWarning(ex, "Erro de validação ao criar pedido: {Message}", ex.Message);
+                
+                stopwatch.Stop();
+                _metricsService.RecordOrderProcessingTime(stopwatch.Elapsed.TotalSeconds, 
+                    new KeyValuePair<string, object?>("status", "error"),
+                    new KeyValuePair<string, object?>("error_type", "validation"));
+                _metricsService.IncrementOrdersProcessed(1, 
+                    new KeyValuePair<string, object?>("status", "error"),
+                    new KeyValuePair<string, object?>("error_type", "validation"));
+                _metricsService.TrackActiveOrder(-1, new KeyValuePair<string, object?>("status", "processing"));
+                
                 return ValidationProblem(new ValidationProblemDetails
                 {
                     Title = "Erro de validação",
@@ -173,6 +208,16 @@ namespace BeverageDistributor.API.Controllers
             catch (DomainException ex)
             {
                 _logger.LogWarning(ex, "Erro de domínio: {Message}", ex.Message);
+                
+                stopwatch.Stop();
+                _metricsService.RecordOrderProcessingTime(stopwatch.Elapsed.TotalSeconds, 
+                    new KeyValuePair<string, object?>("status", "error"),
+                    new KeyValuePair<string, object?>("error_type", "domain"));
+                _metricsService.IncrementOrdersProcessed(1, 
+                    new KeyValuePair<string, object?>("status", "error"),
+                    new KeyValuePair<string, object?>("error_type", "domain"));
+                _metricsService.TrackActiveOrder(-1, new KeyValuePair<string, object?>("status", "processing"));
+                
                 return BadRequest(new ProblemDetails
                 {
                     Title = "Erro de domínio",
@@ -183,6 +228,16 @@ namespace BeverageDistributor.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erro inesperado ao processar o pedido");
+                
+                stopwatch.Stop();
+                _metricsService.RecordOrderProcessingTime(stopwatch.Elapsed.TotalSeconds, 
+                    new KeyValuePair<string, object?>("status", "error"),
+                    new KeyValuePair<string, object?>("error_type", "unexpected"));
+                _metricsService.IncrementOrdersProcessed(1, 
+                    new KeyValuePair<string, object?>("status", "error"),
+                    new KeyValuePair<string, object?>("error_type", "unexpected"));
+                _metricsService.TrackActiveOrder(-1, new KeyValuePair<string, object?>("status", "processing"));
+                
                 return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
                 {
                     Title = "Erro ao processar o pedido",
@@ -212,25 +267,46 @@ namespace BeverageDistributor.API.Controllers
             [FromBody, Required(ErrorMessage = "Os dados de atualização de status são obrigatórios")]
             UpdateOrderStatusDto updateDto)
         {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var oldStatus = "";
+            var newStatus = updateDto.Status;
+            
             try
             {
+                var currentOrder = await _orderService.GetByIdAsync(id);
+                oldStatus = currentOrder.Status;
+                
                 var order = await _orderService.UpdateStatusAsync(id, updateDto);
+                
+                stopwatch.Stop();
+                _metricsService.RecordOrderProcessingTime(stopwatch.Elapsed.TotalSeconds, 
+                    new KeyValuePair<string, object>("status_change", $"{oldStatus}_to_{newStatus}"));
+                    
+                _logger.LogInformation("Status do pedido {OrderId} alterado de {OldStatus} para {NewStatus}", 
+                    id, oldStatus, newStatus);
+                
                 return Ok(order);
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.LogWarning(ex, "Order not found: {Message}", ex.Message);
+                _logger.LogWarning(ex, "Recurso não encontrado: {Message}", ex.Message);
                 return NotFound(ex.Message);
             }
             catch (DomainException ex)
             {
-                _logger.LogWarning(ex, "Domain validation failed: {Message}", ex.Message);
+                _logger.LogWarning(ex, "Erro de validação ao atualizar status do pedido: {Message}", ex.Message);
                 return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating order status: {Message}", ex.Message);
-                return StatusCode(500, "An error occurred while processing your request.");
+                _logger.LogError(ex, "Erro ao atualizar status do pedido: {Message}", ex.Message);
+                
+                stopwatch.Stop();
+                _metricsService.RecordOrderProcessingTime(stopwatch.Elapsed.TotalSeconds, 
+                    new("status", "error"),
+                    new("error_type", "unexpected"));
+                
+                return StatusCode(500, "Ocorreu um erro ao processar sua solicitação.");
             }
         }
 
@@ -262,13 +338,13 @@ namespace BeverageDistributor.API.Controllers
             }
             catch (DomainException ex)
             {
-                _logger.LogWarning(ex, "Domain validation failed: {Message}", ex.Message);
+                _logger.LogWarning(ex, "Erro de validação ao deletar pedido: {Message}", ex.Message);
                 return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting order: {Message}", ex.Message);
-                return StatusCode(500, "An error occurred while processing your request.");
+                _logger.LogError(ex, "Erro ao deletar pedido: {Message}", ex.Message);
+                return StatusCode(500, "Ocorreu um erro ao processar sua solicitação.");
             }
         }
     }
