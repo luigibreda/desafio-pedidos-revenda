@@ -1,12 +1,12 @@
-# Sistema de Distribuição de Bebidas - AMBEV
+# Sistema de Distribuição de Bebidas 
 
 Sistema de gerenciamento de pedidos para revendas de bebidas, desenvolvido em .NET 8.0 seguindo princípios de Clean Architecture e Domain-Driven Design (DDD).
 
 ## 🎯 Sobre o Projeto
 
-Solução completa para o desafio de implementação de um sistema de pedidos para revendas da AMBEV, com foco em:
+Solução completa para o desafio de implementação de um sistema de pedidos para revendas da fornecedora de bebidas, com foco em:
 - Recebimento de pedidos de clientes sem restrições de quantidade mínima
-- Consolidação e envio de pedidos para a AMBEV com regra de quantidade mínima de 1000 unidades
+- Consolidação e envio de pedidos para a fornecedora de bebidas com regra de quantidade mínima de 1000 unidades
 - Garantia de entrega mesmo com falhas na API externa
 
 ### Destaques da Solução
@@ -22,45 +22,97 @@ Solução completa para o desafio de implementação de um sistema de pedidos pa
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        BEVERAGE DISTRIBUTOR API                         │
+│                    SISTEMA DE DISTRIBUIÇÃO DE BEBIDAS                   │
 │                                                                         │
 │  ┌─────────────────┐     ┌─────────────────────┐     ┌──────────────┐  │
 │  │                 │     │                     │     │              │  │
 │  │  API Controller │◄───►│  OrderOrchestrator  │◄───►│  Order       │  │
-│  │                 │     │                     │     │  Processing  │  │
+│  │  (Orders)       │     │  Service            │     │  Service     │  │
 │  └────────┬────────┘     └──────────┬──────────┘     └──────┬───────┘  │
 │           │                         │                       |          │
 │  ┌────────▼────────┐      ┌────────▼──────────┐    ┌────────▼───────┐  │
 │  │                 │      │                   │    │                │  │
-│  │  Swagger/       │      │  RabbitMQ         │    │  External     │  │
-│  │  Documentação   │      │  (Message Queue)  │    │  AMBEV API    │  │
-│  │                 │      │                   │    │                │  │
-│  └─────────────────┘      └───────────────────┘    └────────────────┘  │
+│  │  Swagger/       │      │  Repositórios     │    │  External     │  │
+│  │  Documentação   │      │  (EF Core)        │    │  Order        │  │
+│  │                 │      │                   │    │  Service      │  │
+│  └─────────────────┘      └────────┬──────────┘    └───────┬────────┘  │
+│                                    │                       |            │
+│                           ┌────────▼──────────┐    ┌───────▼────────┐  │
+│                           │                   │    │                │  │
+│                           │  PostgreSQL       │    │  API Externa   │  │
+│                           │  (Dados)          │    │  Distribuidor  │  │
+│                           │                   │    │                │  │
+│                           └───────────────────┘    └────────────────┘  │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Fluxo de Processamento de Pedidos
 
-1. Cliente envia pedido via API REST
-2. `OrderOrchestrator` valida e persiste o pedido
-3. Pedido é publicado na fila para processamento assíncrono
-4. `OrderProcessingService` consome a mensagem e aplica regras de negócio
-5. Pedido é enviado para API da AMBEV com validação de quantidade mínima
-6. Em caso de falha, mensagem é movida para DLQ para análise posterior
+1. Cliente envia pedido via API REST para o endpoint `/api/orders`
+2. `OrdersController` recebe a requisição e repassa para o `OrderOrchestratorService`
+3. `OrderOrchestratorService` valida o pedido e persiste no banco de dados via `OrderService`
+4. O serviço de pedidos aplica as regras de negócio e validações
+5. O `ExternalOrderService` envia o pedido para a API do distribuidor externo
+6. Em caso de falha na API externa, o serviço aplica políticas de retry e circuit breaker
+7. O status do pedido é atualizado e retornado ao cliente
 
 ### Estrutura do Projeto
 
 ```
-├── BeverageDistributor.API/          # API Controllers e configuração
-├── BeverageDistributor.Application/  # Casos de uso e DTOs
-├── BeverageDistributor.Domain/       # Entidades e regras de negócio
-├── BeverageDistributor.Infrastructure/ # Implementações concretas
-│   ├── Services/                     # Serviços de infraestrutura
-│   ├── Repositories/                 # Acesso a dados
-│   └── MessageBroker/                # Integração com RabbitMQ
-└── BeverageDistributor.Tests/        # Testes automatizados
+BeverageDistributor.API/
+├── Controllers/           # Controladores da API (Orders, Distributors, HealthCheck, ExternalOrdersTest)
+├── Properties/            # Configurações e recursos da aplicação
+└── Program.cs             # Configuração e inicialização da aplicação
+
+BeverageDistributor.Application/
+├── DTOs/                  # Objetos de transferência de dados
+├── Interfaces/            # Interfaces dos serviços
+├── Mappings/              # Perfis de mapeamento AutoMapper
+├── Services/              # Implementação dos serviços de aplicação
+└── Validators/            # Validações de entrada
+
+BeverageDistributor.Domain/
+├── Entities/              # Entidades de domínio (Order, Distributor, etc.)
+├── Enums/                 # Enumeradores
+├── Exceptions/            # Exceções personalizadas
+├── Interfaces/            # Interfaces de repositório
+└── ValueObjects/          # Objetos de valor
+
+BeverageDistributor.Infrastructure/
+├── Migrations/            # Migrações do banco de dados
+├── Persistence/           # Configurações do contexto do banco de dados
+├── Repositories/          # Implementações dos repositórios
+└── Services/              # Serviços de infraestrutura (ExternalOrderService, etc.)
+
+BeverageDistributor.Tests/ # Testes automatizados
+└── ...
 ```
+
+### Endpoints da API
+
+#### Pedidos (Orders)
+- `GET    /api/orders` - Lista todos os pedidos
+- `GET    /api/orders/{id}` - Obtém um pedido pelo ID
+- `POST   /api/orders` - Cria um novo pedido
+- `GET    /api/orders/distributor/{distributorId}` - Lista pedidos por distribuidor
+- `GET    /api/orders/client/{clientId}` - Lista pedidos por cliente
+
+#### Distribuidores (Distributors)
+- `GET    /api/distributors` - Lista todos os distribuidores
+- `GET    /api/distributors/{id}` - Obtém um distribuidor pelo ID
+- `POST   /api/distributors` - Cria um novo distribuidor
+- `PUT    /api/distributors/{id}` - Atualiza um distribuidor existente
+- `DELETE /api/distributors/{id}` - Remove um distribuidor
+
+#### Saúde da Aplicação (HealthCheck)
+- `GET    /api/healthcheck` - Verifica a saúde da aplicação e suas dependências
+
+#### Testes de Integração (ExternalOrdersTest)
+- `POST   /api/externalorderstest/submit-sample` - Envia um pedido de teste para a API externa
+- `POST   /api/externalorderstest/simulate-failure` - Simula uma falha na API externa para testes
+
+> **Nota:** Os endpoints em `ExternalOrdersTestController` são apenas para ambientes de desenvolvimento e teste, e não devem ser usados em produção.
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -163,7 +215,7 @@ docker-compose up -d
 
 #### Processamento Assíncrono
 - Fila de mensagens com RabbitMQ
-- Validação de quantidade mínima (1000 unidades) apenas no envio para AMBEV
+- Validação de quantidade mínima (1000 unidades) apenas no envio para a fornecedora de bebidas
 - Dead-letter queue para tratamento de erros
 
 #### Endpoints Principais
@@ -245,7 +297,7 @@ Content-Type: application/json
 
 ### ✅ Implementado
 - [x] Modelagem de domínio para pedidos e itens
-- [x] Separação clara entre pedidos de clientes e envio para AMBEV
+- [x] Separação clara entre pedidos de clientes e envio para a fornecedora de bebidas
 - [x] Tratamento adequado da regra de quantidade mínima (1000 unidades)
 - [x] Código limpo e bem estruturado seguindo Clean Architecture
 - [x] Testes automatizados básicos
