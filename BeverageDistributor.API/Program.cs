@@ -1,3 +1,5 @@
+using BeverageDistributor.Application.Interfaces;
+using BeverageDistributor.Application.Services;
 using BeverageDistributor.Infrastructure;
 using BeverageDistributor.Infrastructure.Persistence;
 using FluentValidation;
@@ -11,6 +13,12 @@ var configuration = builder.Configuration;
 
 // Add Infrastructure Layer
 builder.Services.AddInfrastructure(configuration);
+
+// Add Application Services
+builder.Services.AddScoped<IDistributorService, DistributorService>();
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 // Add FluentValidation
 builder.Services.AddFluentValidationAutoValidation()
@@ -55,7 +63,7 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<ApplicationDbContext>();
         if (context.Database.IsNpgsql())
         {
-            context.Database.Migrate();
+            await context.Database.MigrateAsync();
         }
     }
     catch (Exception ex)

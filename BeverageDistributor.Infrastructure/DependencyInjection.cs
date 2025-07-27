@@ -1,4 +1,6 @@
+using BeverageDistributor.Domain.Interfaces;
 using BeverageDistributor.Infrastructure.Persistence;
+using BeverageDistributor.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +25,9 @@ namespace BeverageDistributor.Infrastructure
                             errorCodesToAdd: null);
                         npgsqlOptions.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
                     }));
+
+            // Register repositories
+            services.AddScoped<IDistributorRepository, DistributorRepository>();
 
             return services;
         }

@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BeverageDistributor.Domain\BeverageDistributor.Domain.csproj" />
+    <ProjectReference Include="..\BeverageDistributor.Application\BeverageDistributor.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
