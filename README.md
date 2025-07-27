@@ -1,20 +1,60 @@
 # Sistema de Distribuição de Bebidas 
 
-Sistema de gerenciamento de pedidos para revendas de bebidas, desenvolvido em .NET 8.0 seguindo princípios de Clean Architecture e Domain-Driven Design (DDD).
+Sistema de gerenciamento de pedidos para revendas de bebidas, desenvolvido em .NET 8.0 seguindo princípios de Clean Architecture.
+
+## 🚀 Como Executar
+
+### Pré-requisitos
+
+- Docker e Docker Compose
+- .NET 8.0 SDK
+
+### Passo a Passo
+
+1. **Iniciar a Infraestrutura**
+   ```bash
+   docker-compose up -d
+   ```
+   Isso irá iniciar o PostgreSQL e RabbitMQ.
+
+2. **Configurar a Aplicação**
+   - Certifique-se de que o arquivo `appsettings.Development.json` contém a string de conexão correta:
+     ```json
+     "ConnectionStrings": {
+       "DefaultConnection": "Server=localhost;Port=5432;Database=beverage_distributor;User Id=postgres;Password=postgres;"
+     }
+     ```
+
+3. **Aplicar as Migrations**
+   ```bash
+   cd BeverageDistributor.API
+   dotnet ef database update --project ../BeverageDistributor.Infrastructure
+   ```
+
+4. **Executar a Aplicação**
+   ```bash
+   dotnet run --project BeverageDistributor.API
+   ```
+   A API estará disponível em `http://localhost:5000` e a documentação Swagger em `http://localhost:5000/swagger`.
+
+### Acessando o Banco de Dados
+- **Host**: localhost
+- **Porta**: 5432
+- **Banco de Dados**: beverage_distributor
+- **Usuário**: postgres
+- **Senha**: postgres
+
+### Acessando o pgAdmin
+- **URL**: http://localhost:5050
+- **Email**: admin@admin.com
+- **Senha**: admin
 
 ## 🎯 Sobre o Projeto
 
-Solução completa para o desafio de implementação de um sistema de pedidos para revendas da fornecedora de bebidas, com foco em:
-- Recebimento de pedidos de clientes sem restrições de quantidade mínima
-- Consolidação e envio de pedidos para a fornecedora de bebidas com regra de quantidade mínima de 1000 unidades
+Solução para o desafio de implementação de um sistema de pedidos para revendas de bebidas, com foco em:
+- Recebimento de pedidos de clientes
+- Consolidação e envio de pedidos para a fornecedora de bebidas
 - Garantia de entrega mesmo com falhas na API externa
-
-### Destaques da Solução
-
-1. **Arquitetura Escalável**: Separação clara de responsabilidades entre camadas
-2. **Resiliência**: Tratamento robusto de falhas com retry e dead-letter queue
-3. **Observabilidade**: Logs estruturados e métricas para monitoramento
-4. **Documentação**: API documentada com Swagger/OpenAPI
 
 ## 🏗️ Arquitetura da Solução
 
@@ -371,46 +411,6 @@ A aplicação possui monitoramento básico com as seguintes limitações:
 2. **Armazenamento Local**: Pedidos são persistidos localmente
 3. **Retry com Backoff**: Tentativas com intervalos exponenciais
 4. **Recuperação**: Processamento automático quando serviço volta
-
-## 🚀 Melhorias Futuras
-
-### Prioridade Alta
-
-1. **Sistema de Notificações**
-   - Alertas em tempo real para falhas críticas
-   - Notificações para a equipe de operações
-   - Dashboard de status do sistema
-
-2. **Monitoramento Avançado**
-   - Integração com Prometheus/Grafana
-   - Métricas detalhadas de performance
-   - Health checks abrangentes (RabbitMQ, API externa)
-
-3. **Logs Estruturados**
-   - Formato JSON para melhor análise
-   - Correlação automática de requisições
-   - Integração com ferramentas como ELK ou Seq
-
-### Prioridade Média
-
-4. **Processamento em Lote**
-   - Agrupar pedidos por distribuidor
-   - Otimizar chamadas à API externa
-   - Processar em lotes baseado em tempo/quantidade
-
-5. **Autenticação e Autorização**
-   - Autenticação JWT
-   - Controle de acesso baseado em roles
-   - Rate limiting
-
-### Prioridade Baixa
-
-6. **Arquitetura Avançada**
-   - Migração para CQRS/Event Sourcing
-   - Decomposição em microsserviços
-   - Cache distribuído com Redis
-   - API Gateway
-   - Orquestração com Kubernetes
 
 ## 🤝 Considerações Técnicas
 
