@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Net;
@@ -5,8 +6,14 @@ using System.Threading.Tasks;
 
 namespace BeverageDistributor.API.Controllers
 {
+    /// <summary>
+    /// Controlador responsável por fornecer endpoints para verificação de saúde da aplicação.
+    /// Este controlador expõe informações sobre o status de saúde dos serviços e dependências da aplicação.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [ApiExplorerSettings(GroupName = "Monitoramento")]
+    [Produces("application/json")]
     public class HealthCheckController : ControllerBase
     {
         private readonly HealthCheckService _healthCheckService;
@@ -20,9 +27,55 @@ namespace BeverageDistributor.API.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Obtém o status de saúde atual da aplicação e suas dependências.
+        /// </summary>
+        /// <remarks>
+        /// Este endpoint realiza verificações de saúde em todos os serviços configurados
+        /// e retorna um relatório detalhado do status de cada um.
+        /// 
+        /// Exemplo de resposta de sucesso (Status 200):
+        /// 
+        ///     GET /api/healthcheck
+        ///     
+        ///     {
+        ///       "status": "Healthy",
+        ///       "results": [
+        ///         {
+        ///           "name": "sqlserver",
+        ///           "status": "Healthy",
+        ///           "description": "SQL Server está respondendo normalmente",
+        ///           "duration": "00:00:00.1234567"
+        ///         }
+        ///       ],
+        ///       "totalDuration": "00:00:00.1234567"
+        ///     }
+        ///     
+        /// Exemplo de resposta de falha (Status 503):
+        /// 
+        ///     GET /api/healthcheck
+        ///     
+        ///     {
+        ///       "status": "Unhealthy",
+        ///       "results": [
+        ///         {
+        ///           "name": "sqlserver",
+        ///           "status": "Unhealthy",
+        ///           "description": "Falha ao conectar ao SQL Server",
+        ///           "exception": "Erro de conexão com o banco de dados",
+        ///           "duration": "00:00:00.1234567"
+        ///         }
+        ///       ],
+        ///       "totalDuration": "00:00:00.1234567"
+        ///     }
+        /// </remarks>
+        /// <returns>Retorna um relatório detalhado do status de saúde da aplicação.</returns>
+        /// <response code="200">A aplicação está saudável e todas as dependências estão funcionando corretamente.</response>
+        /// <response code="503">A aplicação está em execução, mas uma ou mais dependências estão com problemas.</response>
         [HttpGet]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable, Type = typeof(object))]
+        // [ApiExplorerSettings(Description = "Endpoint para verificação do status de saúde da aplicação e suas dependências.")]
         public async Task<IActionResult> GetHealth()
         {
             _logger.LogInformation("Verificando status de saúde da aplicação");

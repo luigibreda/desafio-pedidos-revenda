@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using BeverageDistributor.Application.DTOs.Integration;
 using BeverageDistributor.Application.Interfaces;
 using BeverageDistributor.Application.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -12,8 +13,15 @@ namespace BeverageDistributor.API.Controllers
     /// Controlador para testes de integração com a API externa de pedidos.
     /// Este controlador NÃO deve ser usado em produção.
     /// </summary>
+    /// <summary>
+    /// Controlador para testes de integração com a API externa de pedidos.
+    /// ATENÇÃO: Este controlador é destinado APENAS para ambientes de desenvolvimento e teste.
+    /// NUNCA deve ser exposto em ambientes de produção.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Produces("application/json")]
+    [Consumes("application/json")]
     public class ExternalOrdersTestController : ControllerBase
     {
         private readonly IOrderOrchestratorService _orderOrchestrator;
@@ -30,14 +38,22 @@ namespace BeverageDistributor.API.Controllers
 
         /// <summary>
         /// Envia um pedido de teste pré-definido para a API externa.
-        /// Este endpoint é apenas para fins de teste e demonstração.
         /// </summary>
-        /// <returns>Resultado da operação com detalhes do pedido processado</returns>
-        /// <response code="200">Pedido processado com sucesso</response>
-        /// <response code="500">Erro ao processar o pedido</response>
+        /// <remarks>
+        /// Exemplo de uso:
+        /// 
+        ///     POST /api/externalorderstest/submit-sample
+        ///     
+        /// Este endpoint cria e publica um pedido de teste na fila de processamento.
+        /// <strong>ATENÇÃO:</strong> Este endpoint é apenas para fins de teste e demonstração.
+        /// </remarks>
+        /// <returns>Resultado da operação com detalhes do pedido processado.</returns>
+        /// <response code="200">Pedido de teste publicado na fila com sucesso.</response>
+        /// <response code="500">Erro ao processar o pedido de teste.</response>
         [HttpPost("submit-sample")]
-        [ProducesResponseType(200)]
-        [ProducesResponseType(500)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
+        // [ApiExplorerSettings(Description = "Endpoint de teste para envio de pedidos para a API externa.")]
         public async Task<IActionResult> SubmitSampleOrderToExternalApi()
         {
             try

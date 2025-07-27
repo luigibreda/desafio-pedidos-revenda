@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
 using BeverageDistributor.Application.Mappings;
 using BeverageDistributor.Application.Validators;
@@ -12,8 +13,10 @@ using BeverageDistributor.Infrastructure.Repositories;
 using BeverageDistributor.Infrastructure.Services;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Models;
 using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
@@ -23,46 +26,6 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 var configuration = builder.Configuration;
-
-// Add API versioning
-builder.Services.AddApiVersioning(options =>
-{
-    options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.ReportApiVersions = true;
-});
-
-// Add Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
-    {
-        Title = "Beverage Distributor API",
-        Version = "v1",
-        Description = "API para gerenciamento de pedidos de revenda de bebidas",
-        Contact = new Microsoft.OpenApi.Models.OpenApiContact
-        {
-            Name = "Suporte",
-            Email = "suporte@beveragedistributor.com"
-        }
-    });
-    
-    // Enable annotations for better documentation
-    c.EnableAnnotations();
-    
-    // Include XML comments
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (System.IO.File.Exists(xmlPath))
-    {
-        c.IncludeXmlComments(xmlPath);
-    }
-});
-
-// Add Health Checks
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<ApplicationDbContext>("Database");
 
 // Add Infrastructure Layer
 builder.Services.AddInfrastructure(configuration);
@@ -139,30 +102,49 @@ builder.Services.AddHostedService<OrderProcessingService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ICacheService, CacheService>();
 
-builder.Services.AddControllers();
+// Add API versioning
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+});
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Add Health Checks
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>("Database");
+
+// Configure Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new() { Title = "Beverage Distributor API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Beverage Distributor API",
+        Version = "v1",
+        Description = "API para gerenciamento de pedidos de revenda de bebidas",
+        Contact = new OpenApiContact
+        {
+            Name = "Suporte",
+            Email = "suporte@beveragedistributor.com"
+        }
+    });
+    
+    // Enable annotations for better documentation
+    c.EnableAnnotations();
+    
+    // Include XML comments
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
 });
 
+builder.Services.AddControllers();
+
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Beverage Distributor API V1");
-        c.RoutePrefix = string.Empty; // Serve Swagger UI at the root
-    });
-}
-
-// Add health check endpoint
-app.MapHealthChecks("/health");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -171,9 +153,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => 
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Beverage Distributor API V1");
-        c.RoutePrefix = string.Empty;
+        c.RoutePrefix = string.Empty; // Serve Swagger UI at the root
     });
 }
+
+// Add health check endpoint
+app.MapHealthChecks("/health");
 
 app.UseHttpsRedirection();
 

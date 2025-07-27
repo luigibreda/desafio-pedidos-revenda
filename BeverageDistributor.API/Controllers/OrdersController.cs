@@ -3,6 +3,7 @@ using BeverageDistributor.Application.Interfaces;
 using BeverageDistributor.Application.Services;
 using BeverageDistributor.Domain.Entities;
 using BeverageDistributor.Domain.Exceptions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
@@ -12,8 +13,13 @@ using System.Threading.Tasks;
 
 namespace BeverageDistributor.API.Controllers
 {
+    /// <summary>
+    /// Controller responsável por gerenciar as operações relacionadas a pedidos de bebidas.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Produces("application/json")]
+    [Consumes("application/json")]
     public class OrdersController : ControllerBase
     {
         private readonly IOrderService _orderService;
@@ -30,8 +36,21 @@ namespace BeverageDistributor.API.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<OrderResponseDto>> GetById(Guid id)
+        /// <summary>
+        /// Obtém os detalhes de um pedido específico pelo seu identificador único.
+        /// </summary>
+        /// <param name="id">O identificador único do pedido (GUID).</param>
+        /// <returns>Retorna os detalhes do pedido.</returns>
+        /// <response code="200">Retorna o pedido solicitado.</response>
+        /// <response code="404">Pedido não encontrado.</response>
+        /// <response code="500">Ocorreu um erro ao processar a solicitação.</response>
+        [HttpGet("{id}", Name = "GetOrderById")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(OrderResponseDto))]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<OrderResponseDto>> GetById(
+            [Required(ErrorMessage = "O ID do pedido é obrigatório")]
+            Guid id)
         {
             try
             {
@@ -50,8 +69,19 @@ namespace BeverageDistributor.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Obtém todos os pedidos associados a um distribuidor específico.
+        /// </summary>
+        /// <param name="distributorId">O identificador único do distribuidor (GUID).</param>
+        /// <returns>Retorna a lista de pedidos do distribuidor.</returns>
+        /// <response code="200">Retorna a lista de pedidos com sucesso.</response>
+        /// <response code="500">Ocorreu um erro ao processar a solicitação.</response>
         [HttpGet("distributor/{distributorId}")]
-        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetByDistributor(Guid distributorId)
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<OrderResponseDto>))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetByDistributor(
+            [Required(ErrorMessage = "O ID do distribuidor é obrigatório")]
+            Guid distributorId)
         {
             try
             {
@@ -65,8 +95,19 @@ namespace BeverageDistributor.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Obtém todos os pedidos associados a um cliente específico.
+        /// </summary>
+        /// <param name="clientId">O identificador único do cliente.</param>
+        /// <returns>Retorna a lista de pedidos do cliente.</returns>
+        /// <response code="200">Retorna a lista de pedidos com sucesso.</response>
+        /// <response code="500">Ocorreu um erro ao processar a solicitação.</response>
         [HttpGet("client/{clientId}")]
-        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetByClient(string clientId)
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<OrderResponseDto>))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<IEnumerable<OrderResponseDto>>> GetByClient(
+            [Required(ErrorMessage = "O ID do cliente é obrigatório")]
+            string clientId)
         {
             try
             {
@@ -80,12 +121,23 @@ namespace BeverageDistributor.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Cria um novo pedido e inicia o processamento assíncrono.
+        /// </summary>
+        /// <param name="createDto">Dados necessários para criar um novo pedido.</param>
+        /// <returns>Retorna os detalhes do pedido criado.</returns>
+        /// <response code="201">Pedido criado com sucesso e enviado para processamento.</response>
+        /// <response code="400">Dados inválidos fornecidos.</response>
+        /// <response code="404">Distribuidor ou produto não encontrado.</response>
+        /// <response code="500">Ocorreu um erro ao processar o pedido.</response>
         [HttpPost]
-        [ProducesResponseType(typeof(OrderResponseDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<OrderResponseDto>> Create([FromBody] CreateOrderDto createDto)
+        [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(OrderResponseDto))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ValidationProblemDetails))]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ProblemDetails))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ProblemDetails))]
+        public async Task<ActionResult<OrderResponseDto>> Create(
+            [FromBody, Required(ErrorMessage = "Os dados do pedido são obrigatórios")]
+            CreateOrderDto createDto)
         {
             try
             {
@@ -140,8 +192,25 @@ namespace BeverageDistributor.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Atualiza o status de um pedido existente.
+        /// </summary>
+        /// <param name="id">O identificador único do pedido (GUID).</param>
+        /// <param name="updateDto">Dados para atualização do status do pedido.</param>
+        /// <returns>Retorna os detalhes atualizados do pedido.</returns>
+        /// <response code="200">Status do pedido atualizado com sucesso.</response>
+        /// <response code="400">Dados inválidos fornecidos ou regra de negócio violada.</response>
+        /// <response code="404">Pedido não encontrado.</response>
+        /// <response code="500">Ocorreu um erro ao processar a solicitação.</response>
         [HttpPut("{id}/status")]
-        public async Task<ActionResult<OrderResponseDto>> UpdateStatus(Guid id, [FromBody] UpdateOrderStatusDto updateDto)
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(OrderResponseDto))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<OrderResponseDto>> UpdateStatus(
+            [Required(ErrorMessage = "O ID do pedido é obrigatório")] Guid id,
+            [FromBody, Required(ErrorMessage = "Os dados de atualização de status são obrigatórios")]
+            UpdateOrderStatusDto updateDto)
         {
             try
             {
@@ -165,8 +234,23 @@ namespace BeverageDistributor.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Remove um pedido do sistema.
+        /// </summary>
+        /// <param name="id">O identificador único do pedido a ser removido (GUID).</param>
+        /// <returns>Sem conteúdo em caso de sucesso.</returns>
+        /// <response code="204">Pedido removido com sucesso.</response>
+        /// <response code="400">Não foi possível remover o pedido devido a restrições de negócio.</response>
+        /// <response code="404">Pedido não encontrado.</response>
+        /// <response code="500">Ocorreu um erro ao processar a solicitação.</response>
         [HttpDelete("{id}")]
-        public async Task<ActionResult> Delete(Guid id)
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult> Delete(
+            [Required(ErrorMessage = "O ID do pedido é obrigatório")]
+            Guid id)
         {
             try
             {
