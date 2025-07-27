@@ -66,12 +66,18 @@ namespace BeverageDistributor.Infrastructure.Services
 
             try
             {
+                var arguments = new Dictionary<string, object>
+                {
+                    { "x-message-ttl", 30000 },
+                    { "x-dead-letter-exchange", "order_retry_exchange" }
+                };
+
                 _channel.QueueDeclare(
                     queue: queueName,
                     durable: true,     
                     exclusive: false,  
                     autoDelete: false, 
-                    arguments: null);
+                    arguments: arguments);
 
                 var properties = _channel.CreateBasicProperties();
                 properties.Persistent = true; 

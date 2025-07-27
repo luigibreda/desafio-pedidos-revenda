@@ -54,18 +54,37 @@ builder.Services.Configure<ExternalApiSettings>(configuration.GetSection("Extern
 builder.Services.Configure<RabbitMqSettings>(configuration.GetSection("RabbitMq"));
 builder.Services.Configure<OrderProcessingSettings>(configuration.GetSection("OrderProcessing"));
 
-// Configure HTTP Client with basic retry policy
-builder.Services.AddHttpClient<IExternalOrderService, ExternalOrderService>((serviceProvider, client) =>
+// Configure external order service based on configuration
+var useMockService = configuration.GetValue<bool>("ExternalApi:UseMockService", true);
+
+if (useMockService)
 {
-    var settings = serviceProvider.GetRequiredService<IOptions<ExternalApiSettings>>().Value;
-    client.BaseAddress = new Uri(settings.BaseUrl);
-    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    // Register mock service
+    builder.Services.AddSingleton<IExternalOrderService, MockExternalOrderService>();
     
-    if (!string.IsNullOrEmpty(settings.ApiKey))
+    // Add a no-op HTTP client to satisfy any dependencies
+    builder.Services.AddHttpClient("NoOpHttpClient");
+    
+    builder.Services.AddLogging(loggingBuilder =>
     {
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
-    }
-});
+        loggingBuilder.AddConsole();
+    });
+}
+else
+{
+    // Configure HTTP Client with basic retry policy for the real service
+    builder.Services.AddHttpClient<IExternalOrderService, ExternalOrderService>((serviceProvider, client) =>
+    {
+        var settings = serviceProvider.GetRequiredService<IOptions<ExternalApiSettings>>().Value;
+        client.BaseAddress = new Uri(settings.BaseUrl);
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        
+        if (!string.IsNullOrEmpty(settings.ApiKey))
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
+        }
+    });
+}
 
 // Register RabbitMQ producer
 builder.Services.AddSingleton<IMessageProducer, RabbitMqProducer>();

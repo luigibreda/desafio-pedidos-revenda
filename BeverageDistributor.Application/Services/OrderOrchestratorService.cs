@@ -18,16 +18,19 @@ namespace BeverageDistributor.Application.Services
         private readonly IDistributorService _distributorService;
         private readonly IMessageProducer _messageProducer;
         private readonly ILogger<OrderOrchestratorService> _logger;
+        private readonly IExternalOrderService _externalOrderService;
 
         public OrderOrchestratorService(
             IOrderService orderService,
             IDistributorService distributorService,
             IMessageProducer messageProducer,
+            IExternalOrderService externalOrderService,
             ILogger<OrderOrchestratorService> logger)
         {
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService));
             _distributorService = distributorService ?? throw new ArgumentNullException(nameof(distributorService));
             _messageProducer = messageProducer ?? throw new ArgumentNullException(nameof(messageProducer));
+            _externalOrderService = externalOrderService ?? throw new ArgumentNullException(nameof(externalOrderService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -39,47 +42,40 @@ namespace BeverageDistributor.Application.Services
             if (string.IsNullOrWhiteSpace(distributorId))
                 throw new ArgumentException("O ID do distribuidor é obrigatório", nameof(distributorId));
 
-            // Garante que o distributorId do DTO corresponde ao fornecido
             createOrderDto.DistributorId = Guid.Parse(distributorId);
 
             try
             {
                 _logger.LogInformation("Iniciando processamento de novo pedido para o cliente {ClientId}", createOrderDto.ClientId);
 
-                // 1. Valida o distribuidor
                 var distributor = await _distributorService.GetByIdAsync(createOrderDto.DistributorId);
                 if (distributor == null)
                 {
                     throw new ValidationException("Distribuidor não encontrado");
                 }
 
-                // 2. Cria um objeto Order para validação
                 var order = new Order(createOrderDto.DistributorId, createOrderDto.ClientId);
                 foreach (var item in createOrderDto.Items)
                 {
                     order.AddItem(Guid.NewGuid(), item.ProductName, item.Quantity, item.UnitPrice);
                 }
 
-                // 3. Valida o pedido
                 ValidateOrder(order);
 
-                // 4. Salva o pedido no banco de dados
                 var createdOrder = await _orderService.CreateAsync(createOrderDto);
 
-                // 5. Prepara a mensagem para a fila
                 var externalOrder = new ExternalOrderRequestDto
                 {
                     DistributorId = distributorId,
                     Items = createOrderDto.Items.Select(item => new ExternalOrderItemDto
                     {
-                        ProductId = item.ProductId.ToString(), // Convertendo para string
+                        ProductId = item.ProductId.ToString(),
                         ProductName = item.ProductName,
                         Quantity = item.Quantity,
                         UnitPrice = item.UnitPrice
                     }).ToList()
                 };
 
-                // 6. Publica a mensagem na fila para processamento assíncrono
                 await _messageProducer.PublishOrderAsync(externalOrder, "order_processing");
 
                 _logger.LogInformation("Pedido {OrderId} criado e enviado para processamento assíncrono", createdOrder.Id);
@@ -93,6 +89,47 @@ namespace BeverageDistributor.Application.Services
             }
         }
 
+        public async Task<string> PublishOrderToQueueAsync(ExternalOrderRequestDto orderRequest)
+        {
+            if (orderRequest == null)
+                throw new ArgumentNullException(nameof(orderRequest));
+
+            try
+            {
+                _logger.LogInformation("Publicando pedido na fila de processamento...");
+                
+                if (orderRequest.Items == null || !orderRequest.Items.Any())
+                {
+                    throw new ValidationException("O pedido deve conter pelo menos um item");
+                }
+
+                foreach (var item in orderRequest.Items)
+                {
+                    if (item.Quantity <= 0)
+                    {
+                        throw new ValidationException($"A quantidade do produto {item.ProductName} deve ser maior que zero");
+                    }
+
+                    if (item.UnitPrice < 0)
+                    {
+                        throw new ValidationException($"O preço unitário do produto {item.ProductName} não pode ser negativo");
+                    }
+                }
+
+                var messageId = Guid.NewGuid().ToString();
+                await _messageProducer.PublishOrderAsync(orderRequest, "order_processing");
+                
+                _logger.LogInformation("Pedido publicado na fila com sucesso. MessageId: {MessageId}", messageId);
+                
+                return messageId;
+            }
+            catch (Exception ex) when (ex is not ValidationException)
+            {
+                _logger.LogError(ex, "Erro ao publicar pedido na fila");
+                throw new OrderQueueException("Falha ao publicar o pedido na fila de processamento. Tente novamente mais tarde.", ex);
+            }
+        }
+
         private void ValidateOrder(Order order)
         {
             if (order.Items == null || !order.Items.Any())
@@ -100,7 +137,6 @@ namespace BeverageDistributor.Application.Services
                 throw new ValidationException("O pedido deve conter pelo menos um item");
             }
 
-            // Valida cada item do pedido
             foreach (var item in order.Items)
             {
                 if (item.Quantity <= 0)
@@ -113,18 +149,33 @@ namespace BeverageDistributor.Application.Services
                     throw new ValidationException($"O preço unitário do produto {item.ProductName} não pode ser negativo");
                 }
             }
-
         }
     }
 
     public interface IOrderOrchestratorService
     {
+        /// <summary>
+        /// Processa um pedido e o envia para a fila de processamento
+        /// </summary>
         Task<OrderResponseDto> ProcessOrderAsync(CreateOrderDto createOrderDto, string distributorId);
+        
+        /// <summary>
+        /// Publica um pedido diretamente na fila de processamento
+        /// </summary>
+        /// <param name="orderRequest">Dados do pedido a ser processado</param>
+        /// <returns>ID da mensagem publicada na fila</returns>
+        Task<string> PublishOrderToQueueAsync(ExternalOrderRequestDto orderRequest);
     }
 
     public class OrderProcessingException : Exception
     {
         public OrderProcessingException(string message) : base(message) { }
         public OrderProcessingException(string message, Exception innerException) : base(message, innerException) { }
+    }
+
+    public class OrderQueueException : Exception
+    {
+        public OrderQueueException(string message) : base(message) { }
+        public OrderQueueException(string message, Exception innerException) : base(message, innerException) { }
     }
 }
