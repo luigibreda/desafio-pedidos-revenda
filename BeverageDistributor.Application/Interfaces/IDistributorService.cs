@@ -10,5 +10,7 @@ namespace BeverageDistributor.Application.Interfaces
         Task<IEnumerable<DistributorResponseDto>> GetAllAsync();
         Task<DistributorResponseDto> GetByIdAsync(Guid id);
         Task<DistributorResponseDto> CreateAsync(CreateDistributorDto createDto);
+        Task<DistributorResponseDto> UpdateAsync(Guid id, UpdateDistributorDto updateDto);
+        Task<bool> DeleteAsync(Guid id);
     }
 }

@@ -1,7 +1,9 @@
 using AutoMapper;
 using BeverageDistributor.Application.DTOs;
 using BeverageDistributor.Application.DTOs.Distributor;
+using BeverageDistributor.Application.DTOs.Order;
 using BeverageDistributor.Domain.Entities;
+using BeverageDistributor.Domain.Enums;
 using BeverageDistributor.Domain.ValueObjects;
 
 namespace BeverageDistributor.Application.Mappings
@@ -19,6 +21,24 @@ namespace BeverageDistributor.Application.Mappings
             CreateMap<PhoneNumber, PhoneNumberDto>();
             CreateMap<ContactName, ContactNameDto>();
             CreateMap<Address, AddressDto>();
+            
+            // Mapeamentos para pedidos
+            CreateMap<Order, OrderResponseDto>();
+            CreateMap<OrderItem, OrderItemDto>();
+            
+            CreateMap<CreateOrderDto, Order>()
+                .ForMember(dest => dest.Items, opt => opt.Ignore())
+                .AfterMap((src, dest) =>
+                {
+                    foreach (var itemDto in src.Items)
+                    {
+                        dest.AddItem(
+                            itemDto.ProductId,
+                            itemDto.ProductName,
+                            itemDto.Quantity,
+                            itemDto.UnitPrice);
+                    }
+                });
             
             CreateMap<CreateDistributorDto, Distributor>()
                 .ForMember(dest => dest.PhoneNumbers, opt => opt.Ignore())

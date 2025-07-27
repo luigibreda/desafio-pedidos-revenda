@@ -115,5 +115,32 @@ namespace BeverageDistributor.Domain.Entities
             }
             _addresses.Add(address);
         }
+
+        public void UpdatePhoneNumbers(IEnumerable<PhoneNumber> phoneNumbers)
+        {
+            _phoneNumbers.Clear();
+            foreach (var phone in phoneNumbers)
+            {
+                _phoneNumbers.Add(phone);
+            }
+        }
+
+        public void UpdateContactNames(IEnumerable<ContactName> contactNames)
+        {
+            _contactNames.Clear();
+            foreach (var contact in contactNames)
+            {
+                _contactNames.Add(contact);
+            }
+        }
+
+        public void UpdateAddresses(IEnumerable<Address> addresses)
+        {
+            _addresses.Clear();
+            foreach (var address in addresses)
+            {
+                _addresses.Add(address);
+            }
+        }
     }
 }

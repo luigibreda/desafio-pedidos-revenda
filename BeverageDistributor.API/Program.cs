@@ -2,8 +2,10 @@ using BeverageDistributor.Application.Validators;
 using BeverageDistributor.Application;
 using BeverageDistributor.Application.Interfaces;
 using BeverageDistributor.Application.Services;
+using BeverageDistributor.Domain.Interfaces;
 using BeverageDistributor.Infrastructure;
 using BeverageDistributor.Infrastructure.Persistence;
+using BeverageDistributor.Infrastructure.Repositories;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +30,11 @@ builder.Services.AddFluentValidationAutoValidation()
 
 // Register validators from the Application layer
 builder.Services.AddValidatorsFromAssemblyContaining<CreateDistributorDtoValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateOrderDtoValidator>();
+
+// Register Order services
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddControllers();
 
