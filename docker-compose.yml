@@ -46,5 +46,20 @@ services:
       timeout: 5s
       retries: 5
 
+  # Seq para visualização de logs estruturados
+  seq:
+    image: datalust/seq:latest
+    container_name: seq
+    ports:
+      - "5341:80"
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_ADMINPASSWORD=admin123
+    volumes:
+      - seq_data:/data
+    networks:
+      - default
+
 volumes:
   postgres_data:
+  seq_data:

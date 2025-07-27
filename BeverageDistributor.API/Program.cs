@@ -3,6 +3,10 @@ using System.Reflection;
 using System.Text;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Serilog;
+using Serilog.Events;
+using Serilog.Sinks.SystemConsole.Themes;
+using BeverageDistributor.API.Middlewares;
 using BeverageDistributor.Application.Mappings;
 using BeverageDistributor.Application.Validators;
 using BeverageDistributor.Application;
@@ -30,10 +34,32 @@ using Polly.Retry;
 using Prometheus;
 using RabbitMQ.Client;
 
-var builder = WebApplication.CreateBuilder(args);
+// Configuração do Serilog
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "BeverageDistributor.API")
+    .Enrich.WithMachineName()
+    .Enrich.WithEnvironmentName()
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {NewLine}{Properties:j}{NewLine}{Exception}{NewLine}",
+        theme: AnsiConsoleTheme.Code)
+    .WriteTo.Seq(Environment.GetEnvironmentVariable("SEQ_URL") ?? "http://localhost:5341")
+    .CreateLogger();
 
-// Add services to the container.
-var configuration = builder.Configuration;
+try
+{
+    Log.Information("Starting web application");
+
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Configurar o Serilog como provedor de logging
+    builder.Host.UseSerilog();
+
+    // Add services to the container.
+    var configuration = builder.Configuration;
 
 // Configuração básica do OpenTelemetry
 var resourceBuilder = ResourceBuilder.CreateDefault()
@@ -215,6 +241,9 @@ app.MapGet("/metrics", async context =>
     await context.Response.WriteAsync("Metrics are currently only available through the console exporter in this version.");
 });
 
+// Adicionar o middleware de logging de requisições
+app.UseRequestLogging();
+
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
@@ -243,3 +272,13 @@ using (var scope = app.Services.CreateScope())
 
 
 app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    // Garante que todos os logs sejam enviados antes de encerrar
+    Log.CloseAndFlush();
+}

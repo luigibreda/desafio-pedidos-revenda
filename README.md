@@ -49,6 +49,11 @@ Sistema de gerenciamento de pedidos para revendas de bebidas, desenvolvido em .N
 - **Email**: admin@admin.com
 - **Senha**: admin
 
+### Acessando o Serilog
+- **URL**: http://localhost:5341
+- **Email**: admin
+- **Senha**: adminadmin
+
 ## 🎯 Sobre o Projeto
 
 Solução para o desafio de implementação de um sistema de pedidos para revendas de bebidas, com foco em:
@@ -258,14 +263,6 @@ docker-compose up -d
 - Validação de quantidade mínima (1000 unidades) apenas no envio para a fornecedora de bebidas
 - Dead-letter queue para tratamento de erros
 
-#### Endpoints Principais
-```http
-POST   /api/orders                    # Criar novo pedido
-GET    /api/orders                    # Listar todos os pedidos
-GET    /api/orders/{id}               # Buscar pedido por ID
-GET    /api/orders/client/{clientId}  # Buscar pedidos por cliente
-```
-
 ### 2. Observabilidade
 
 #### Logs Estruturados
@@ -329,6 +326,7 @@ Content-Type: application/json
 
 ### 2. Logs de Observabilidade
 ![Logs de Observabilidade](docs/logs.png)
+![Logs de Serilog](docs/serilog.png)
 
 ### 3. Schemas
 ![Schemas](docs/schemas.png)
@@ -350,12 +348,11 @@ Content-Type: application/json
 ### ⚠️ Parcialmente Implementado
 - [~] Logs estruturados (formato texto, não JSON)
 - [~] Rastreabilidade de erros (básica, sem correlação automática)
+- [~] Métricas de performance detalhadas (implementação básica via Prometheus)
+- [~] Health checks avançados (básicos implementados, faltando RabbitMQ e API externa)
 
 ### ❌ Não Implementado
-- [ ] Métricas de performance detalhadas
 - [ ] Monitoramento de recursos
-- [ ] Health checks avançados (RabbitMQ, API externa)
-- [ ] Painel de monitoramento
 
 ## 🧪 Testes
 
@@ -364,6 +361,7 @@ Content-Type: application/json
 ```bash
 dotnet test
 ```
+![Testes](docs/tests.png)
 
 ## 📊 Observabilidade
 
