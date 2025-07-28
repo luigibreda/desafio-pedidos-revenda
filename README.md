@@ -66,41 +66,84 @@ Solução para o desafio de implementação de um sistema de pedidos para revend
 ### Visão Geral da Arquitetura
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    SISTEMA DE DISTRIBUIÇÃO DE BEBIDAS                   │
-│                                                                         │
-│  ┌─────────────────┐     ┌─────────────────────┐     ┌──────────────┐  │
-│  │                 │     │                     │     │              │  │
-│  │  API Controller │◄───►│  OrderOrchestrator  │◄───►│  Order       │  │
-│  │  (Orders)       │     │  Service            │     │  Service     │  │
-│  └────────┬────────┘     └──────────┬──────────┘     └──────┬───────┘  │
-│           │                         │                       |          │
-│  ┌────────▼────────┐      ┌────────▼──────────┐    ┌────────▼───────┐  │
-│  │                 │      │                   │    │                │  │
-│  │  Swagger/       │      │  Repositórios     │    │  External     │  │
-│  │  Documentação   │      │  (EF Core)        │    │  Order        │  │
-│  │                 │      │                   │    │  Service      │  │
-│  └─────────────────┘      └────────┬──────────┘    └───────┬────────┘  │
-│                                    │                       |            │
-│                           ┌────────▼──────────┐    ┌───────▼────────┐  │
-│                           │                   │    │                │  │
-│                           │  PostgreSQL       │    │  API Externa   │  │
-│                           │  (Dados)          │    │  Distribuidor  │  │
-│                           │                   │    │                │  │
-│                           └───────────────────┘    └────────────────┘  │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                    SISTEMA DE DISTRIBUIÇÃO DE BEBIDAS (ALTA DISPONIBILIDADE)      │
+│                                                                                   │
+│  ┌─────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐     │
+│  │                 │     │                     │     │                     │     │
+│  │  API Controller │◄────►│  OrderOrchestrator │◄────►│  RabbitMQ           │     │
+│  │  (Stateless)    │ HTTP │  Service           │  🚀  │  (Fila de Mensagens)│     │
+│  └────────┬────────┘     └──────────┬──────────┘     └──────────┬──────────┘     │
+│           │                         │                            │                │
+│  ┌────────▼────────┐      ┌────────▼──────────┐       ┌─────────▼─────────┐      │
+│  │                 │      │                   │       │                   │      │
+│  │  Swagger/       │      │  PostgreSQL       │       │  Worker Service   │      │
+│  │  Documentação   │      │  (Dados           │       │  (Processamento   │      │
+│  │                 │      │   Transacional)   │       │   Assíncrono)     │      │
+│  └─────────────────┘      └────────┬──────────┘       └─────────┬─────────┘      │
+│                                    │                            │                 │
+│                           ┌────────▼──────────┐       ┌─────────▼─────────┐      │
+│                           │                   │       │                   │      │
+│                           │  Backup/Recovery  │       │  External Order   │      │
+│                           │  (Event Sourcing) │       │  Service          │      │
+│                           │                   │       │  (Com Retry &     │      │
+│                           └───────────────────┘       │  Circuit Breaker) │      │
+│                                                      └─────────┬─────────┘      │
+│                                                                │                │
+│                                                       ┌────────▼──────────┐     │
+│                                                       │                   │     │
+│                                                       │  API Externa      │     │
+│                                                       │  (Distribuidor)   │     │
+│                                                       │                   │     │
+│                                                       └───────────────────┘     │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+Principais Características de Resiliência:
+• Stateless API: Escalabilidade horizontal ilimitada
+• Fila de Mensagens: Garante entrega exatamente uma vez (at-least-once delivery)
+• Processamento Assíncrono: Isola falhas e permite retentativas automáticas
+• Circuit Breaker: Evita sobrecarga em falhas da API externa
+• Persistência Dupla: Banco de dados + Fila para recuperação de falhas
+• Monitoramento em Tempo Real: Métricas, logs e rastreamento distribuído
 ```
 
-### Fluxo de Processamento de Pedidos
+### Fluxo de Processamento de Pedidos com Garantia de Entrega
 
-1. Cliente envia pedido via API REST para o endpoint `/api/orders`
-2. `OrdersController` recebe a requisição e repassa para o `OrderOrchestratorService`
-3. `OrderOrchestratorService` valida o pedido e persiste no banco de dados via `OrderService`
-4. O serviço de pedidos aplica as regras de negócio e validações
-5. O `ExternalOrderService` envia o pedido para a API do distribuidor externo
-6. Em caso de falha na API externa, o serviço aplica políticas de retry e circuit breaker
-7. O status do pedido é atualizado e retornado ao cliente
+1. **Recepção do Pedido (HTTP)**
+   - Cliente envia pedido via API REST para `/api/orders`
+   - Validação síncrona dos dados de entrada
+   - Resposta imediata com ID de rastreamento
+
+2. **Processamento Inicial (Síncrono)**
+   - Persistência inicial no banco de dados com status `Received`
+   - Publicação assíncrona no RabbitMQ com confirmação de escrita
+   - Retorno de confirmação ao cliente
+
+3. **Processamento Assíncrono (Worker)**
+   - Consumo da fila com reconhecimento manual (ack/nack)
+   - Validações de negócio se houver
+   - Tentativas de entrega com backoff exponencial
+   - Circuit breaker para falhas recorrentes
+
+4. **Integração com Fornecedor**
+   - Chamada HTTP com timeout configurável
+   - Validações de negócio e regras de quantidade mínima
+   - Tratamento de falhas com retry automático
+   - Circuit breaker para falhas recorrentes
+   - Dead-letter queue para falhas persistentes
+
+5. **Atualização de Status**
+   - Atualização do status no banco de dados
+   - Notificações de eventos (opcional)
+   - Logs detalhados para auditoria
+
+**Garantias de Entrega:**
+- ✅ Mensagens não são perdidas (persistência em disco no RabbitMQ)
+- ✅ Processamento exatamente uma vez (idempotência implementada)
+- ✅ Recuperação automática de falhas
+- ✅ Escalabilidade horizontal ilimitada
+- ✅ Monitoramento em tempo real de filas e processamento
 
 ### Estrutura do Projeto
 
@@ -221,7 +264,7 @@ Ou configure diretamente no arquivo `appsettings.json` na pasta `BeverageDistrib
 
 1. **Clone o repositório**
    ```bash
-   git clone <url-do-repositorio>
+   git clone https://github.com/luigibreda/desafio-pedidos-revenda.git
    cd desafio-pedidos-revenda
    ```
 
