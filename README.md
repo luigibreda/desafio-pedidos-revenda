@@ -409,13 +409,14 @@ Content-Type: application/json
 - [x] Retry com backoff exponencial
 
 ### ⚠️ Parcialmente Implementado
-- [~] Logs estruturados (formato texto, não JSON)
+- [~] Logs estruturados (básico, formato texto, não JSON)
 - [~] Rastreabilidade de erros (básica, sem correlação automática)
 - [~] Métricas de performance detalhadas (implementação básica via Prometheus)
 - [~] Health checks avançados (básicos implementados, faltando RabbitMQ e API externa)
+- [~] Monitoramento de recursos
 
 ### ❌ Não Implementado
-- [ ] Monitoramento de recursos
+- [ ] 
 
 ## 🧪 Testes
 
