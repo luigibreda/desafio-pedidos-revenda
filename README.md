@@ -69,33 +69,24 @@ Solução para o desafio de implementação de um sistema de pedidos para revend
 ┌───────────────────────────────────────────────────────────────────────────────────┐
 │                    SISTEMA DE DISTRIBUIÇÃO DE BEBIDAS (ALTA DISPONIBILIDADE)      │
 │                                                                                   │
-│  ┌─────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐     │
-│  │                 │     │                     │     │                     │     │
+│  ┌─────────────────┐     ┌─────────────────────┐      ┌─────────────────────┐     │
+│  │                 │     │                     │      │                     │     │
 │  │  API Controller │◄────►│  OrderOrchestrator │◄────►│  RabbitMQ           │     │
-│  │  (Stateless)    │ HTTP │  Service           │  🚀  │  (Fila de Mensagens)│     │
-│  └────────┬────────┘     └──────────┬──────────┘     └──────────┬──────────┘     │
-│           │                         │                            │                │
-│  ┌────────▼────────┐      ┌────────▼──────────┐       ┌─────────▼─────────┐      │
-│  │                 │      │                   │       │                   │      │
-│  │  Swagger/       │      │  PostgreSQL       │       │  Worker Service   │      │
-│  │  Documentação   │      │  (Dados           │       │  (Processamento   │      │
-│  │                 │      │   Transacional)   │       │   Assíncrono)     │      │
-│  └─────────────────┘      └────────┬──────────┘       └─────────┬─────────┘      │
-│                                    │                            │                 │
-│                           ┌────────▼──────────┐       ┌─────────▼─────────┐      │
-│                           │                   │       │                   │      │
-│                           │  Backup/Recovery  │       │  External Order   │      │
-│                           │  (Event Sourcing) │       │  Service          │      │
-│                           │                   │       │  (Com Retry &     │      │
-│                           └───────────────────┘       │  Circuit Breaker) │      │
-│                                                      └─────────┬─────────┘      │
-│                                                                │                │
-│                                                       ┌────────▼──────────┐     │
-│                                                       │                   │     │
-│                                                       │  API Externa      │     │
-│                                                       │  (Distribuidor)   │     │
-│                                                       │                   │     │
-│                                                       └───────────────────┘     │
+│  │  (Stateless)    │ HTTP │  Service           │  🚀  │  (Fila de Pedidos)  │     │
+│  └─────────────────┘     └──────────┬──────────┘      └──────────┬──────────┘     │
+│                                     │                            │                │
+│                            ┌────────▼──────────┐     ┌──────────▼──────────┐     │
+│                            │                   │     │                     │     │
+│                            │  PostgreSQL       │     │  Worker Service     │     │
+│                            │  (Dados           │     │  (Processamento     │     │
+│                            │   Transacionais)  │     │   Inicial)          │     │
+│                            └───────────────────┘     └──────────┬──────────┘     │
+│                                                                 │                │
+│  ┌─────────────────┐     ┌─────────────────────┐     ┌──────────▼──────────┐     │
+│  │                 │     │                     │     │                     │     │
+│  │  API Externa    │◄────┤  External Order    │◄────┤  RabbitMQ            │     │
+│  │  (Fornecedor)   │     │  Processor         │  🚀 │  (Fila Externa)     │     │
+│  └─────────────────┘     └────────────────────┘     └──────────────────────┘    │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
@@ -117,19 +108,18 @@ Principais Características de Resiliência:
 
 2. **Processamento Inicial (Síncrono)**
    - Persistência inicial no banco de dados com status `Received`
-   - Publicação assíncrona no RabbitMQ com confirmação de escrita
+   - Publicação na fila `order-processing` com confirmação de escrita
    - Retorno de confirmação ao cliente
 
-3. **Processamento Assíncrono (Worker)**
-   - Consumo da fila com reconhecimento manual (ack/nack)
-   - Validações de negócio se houver
-   - Tentativas de entrega com backoff exponencial
-   - Circuit breaker para falhas recorrentes
+3. **Processamento Assíncrono (Worker 1)**
+   - Consumo da fila `order-processing` com reconhecimento manual (ack/nack)
+   - Validações de negócio e regras de domínio
+   - Publicação na fila `external-api-queue` para integração externa
 
-4. **Integração com Fornecedor**
-   - Chamada HTTP com timeout configurável
-   - Validações de negócio e regras de quantidade mínima
-   - Tratamento de falhas com retry automático
+4. **Integração com Fornecedor (Worker 2)**
+   - Consumo da fila `external-api-queue` com reconhecimento manual
+   - Validação de quantidade mínima (1000 unidades)
+   - Tentativas de entrega com backoff exponencial
    - Circuit breaker para falhas recorrentes
    - Dead-letter queue para falhas persistentes
 
@@ -138,12 +128,19 @@ Principais Características de Resiliência:
    - Notificações de eventos (opcional)
    - Logs detalhados para auditoria
 
+**Melhorias Implementadas:**
+- Separação clara das responsabilidades em dois workers independentes
+- Duas filas dedicadas para cada estágio crítico
+- Isolamento de falhas entre processamento interno e externo
+- Escalabilidade independente para cada estágio
+
 **Garantias de Entrega:**
 - ✅ Mensagens não são perdidas (persistência em disco no RabbitMQ)
 - ✅ Processamento exatamente uma vez (idempotência implementada)
+- ✅ Isolamento de falhas entre estágios
 - ✅ Recuperação automática de falhas
-- ✅ Escalabilidade horizontal ilimitada
-- ✅ Monitoramento em tempo real de filas e processamento
+- ✅ Escalabilidade horizontal independente
+
 
 ### Estrutura do Projeto
 
