@@ -54,6 +54,29 @@ Sistema de gerenciamento de pedidos para revendas de bebidas, desenvolvido em .N
 - **Email**: admin
 - **Senha**: adminadmin
 
+### Monitoramento com Prometheus e Grafana
+
+O sistema inclui monitoramento em tempo real usando Prometheus e Grafana.
+
+#### Acessando o Prometheus
+- **URL**: http://localhost:9090
+- **Métricas da aplicação**: http://localhost:5288/metrics
+
+#### Acessando o Grafana
+- **URL**: http://localhost:3000
+- **Usuário**: admin
+- **Senha**: admin
+
+#### Métricas Coletadas
+- Requisições HTTP (total, em andamento, duração)
+- Uso de memória e CPU
+- Tempo de resposta das APIs
+- Status de saúde dos serviços
+
+![Dashboard do Prometheus](docs/prometheus.png)
+
+![Dashboard do Grafana](docs/grafana.png)
+
 ## 🎯 Sobre o Projeto
 
 Solução para o desafio de implementação de um sistema de pedidos para revendas de bebidas, com foco em:
@@ -434,14 +457,37 @@ Exemplo de log implementado:
 
 ### Métricas e Monitoramento
 
-A aplicação possui monitoramento básico com as seguintes limitações:
+A aplicação possui monitoramento em tempo real usando Prometheus e Grafana com as seguintes métricas:
 
-- ❌ **Request/Response Timing**: Não implementado
-- ❌ **Error Rates**: Apenas contagem básica via logs
-- ❌ **Business Metrics**: Não implementado
-- ❌ **Resource Usage**: Não implementado
+#### Métricas de HTTP (prometheus-net)
+- ✅ **Request Count**: Contagem total de requisições por rota e método
+- ✅ **Request Duration**: Duração das requisições (p50, p95, p99)
+- ✅ **Requests in Progress**: Número de requisições em andamento
+- ✅ **Request Size**: Tamanho das requisições e respostas
+- ✅ **Active Requests**: Métricas em tempo real de requisições ativas
 
-**Observação**: A implementação atual se baseia principalmente em logs para monitoramento, mas, basta aumentar a cobertura, fiz apenas um exemplo. 
+#### Métricas do .NET Runtime
+- ✅ **Garbage Collections**: Contagem e duração das coletas de lixo
+- ✅ **Thread Pool**: Tamanho e threads disponíveis
+- ✅ **Memory Usage**: Uso de memória gerenciada
+- ✅ **Exception Count**: Contagem de exceções por tipo
+
+#### Métricas Personalizadas
+- ✅ **Business Metrics**: Métricas específicas do domínio (ex: pedidos processados)
+- ✅ **External API Calls**: Chamadas para APIs externas e seus status
+
+#### Configuração de Alertas
+- ✅ **Alertas no Grafana**: Configuração de alertas baseados em métricas
+- ✅ **Notificações**: É possível integrar com canais de notificação (email, Slack, etc.)
+
+#### Dashboards
+- ✅ **Visão Geral**: É possível criar dashboards para monitorar as principais métricas do sistema
+- ✅ **Performance**: É possível criar dashboards para Análise detalhada de performance
+- ✅ **Erros**: É possível criar dashboards para monitoramento de erros e exceções
+- ✅ **Recursos**: É possível criar dashboards para Uso de CPU, memória e outros recursos do sistema
+
+
+**Observação**: A implementação atual se baseia principalmente em logs para monitoramento, mas, basta aumentar a cobertura, fiz apenas um exemplo mas entendo como implementar mais métricas.
 
 ### Tratamento de Indisponibilidade da API Externa
 

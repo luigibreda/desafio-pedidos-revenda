@@ -235,13 +235,13 @@ if (app.Environment.IsDevelopment())
 // Add health check endpoint
 app.MapHealthChecks("/health");
 
-// Simple metrics endpoint
-app.MapGet("/metrics", async context =>
+app.UseMetricServer(settings => 
 {
-    await context.Response.WriteAsync("Metrics are currently only available through the console exporter in this version.");
+    settings.EnableOpenMetrics = true;
 });
 
-// Adicionar o middleware de logging de requisições
+app.UseHttpMetrics();
+
 app.UseRequestLogging();
 
 app.UseHttpsRedirection();

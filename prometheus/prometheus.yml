@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Monitora a aplicação rodando localmente na porta 5288
+  - job_name: "beverage-distributor"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["host.docker.internal:5288"]
+        labels:
+          service: "beverage-distributor"
+          environment: "development"
+    # Adiciona configuração extra para resolver o nome do host
+    dns_sd_configs:
+      - names: ['host.docker.internal']
+        type: 'A'
+        port: 5288
+
+  # Monitora o próprio Prometheus
+  - job_name: "prometheus"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: "prometheus"
+          environment: "monitoring"
