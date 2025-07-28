@@ -456,39 +456,79 @@ Exemplo de log implementado:
 [Information] Circuito fechado, as requisições serão permitidas novamente
 ```
 
-### Métricas e Monitoramento
+### 📊 Métricas e Monitoramento
 
-A aplicação possui monitoramento em tempo real usando Prometheus e Grafana com as seguintes métricas:
+A arquitetura de monitoramento foi projetada para fornecer visibilidade completa sobre o desempenho e saúde da aplicação. A implementação atual estabelece uma base sólida que pode ser facilmente expandida conforme necessário.
 
-#### Métricas de HTTP (prometheus-net)
-- ✅ **Request Count**: Contagem total de requisições por rota e método
-- ✅ **Request Duration**: Duração das requisições (p50, p95, p99)
-- ✅ **Requests in Progress**: Número de requisições em andamento
-- ✅ **Request Size**: Tamanho das requisições e respostas
-- ✅ **Active Requests**: Métricas em tempo real de requisições ativas
+#### ✅ Implementado e Funcional
 
-#### Métricas do .NET Runtime
-- ✅ **Garbage Collections**: Contagem e duração das coletas de lixo
-- ✅ **Thread Pool**: Tamanho e threads disponíveis
-- ✅ **Memory Usage**: Uso de memória gerenciada
-- ✅ **Exception Count**: Contagem de exceções por tipo
+**Infraestrutura Básica**
+- **Prometheus**: Coleta e armazena métricas em tempo real
+- **Grafana**: Visualização de dashboards personalizáveis
+- **Endpoint de Métricas**: `/metrics` expondo métricas no formato Prometheus
 
-#### Métricas Personalizadas
-- ✅ **Business Metrics**: Métricas específicas do domínio (ex: pedidos processados)
-- ✅ **External API Calls**: Chamadas para APIs externas e seus status
+**Métricas do ASP.NET Core**
+- **HTTP**: Contagem, duração e requisições em andamento
+- **Runtime**: Uso de memória, GC, thread pool e exceções
+- **Health Checks**: Verificação de saúde do banco de dados
 
-#### Configuração de Alertas
-- ✅ **Alertas no Grafana**: Configuração de alertas baseados em métricas
-- ✅ **Notificações**: É possível integrar com canais de notificação (email, Slack, etc.)
+**Logging Estruturado**
+- Níveis de log (Debug, Info, Warning, Error, Critical)
+- Contexto de negócio em todas as mensagens
+- Integração com Seq para análise de logs
 
-#### Dashboards
-- ✅ **Visão Geral**: É possível criar dashboards para monitorar as principais métricas do sistema
-- ✅ **Performance**: É possível criar dashboards para Análise detalhada de performance
-- ✅ **Erros**: É possível criar dashboards para monitoramento de erros e exceções
-- ✅ **Recursos**: É possível criar dashboards para Uso de CPU, memória e outros recursos do sistema
+#### 🔄 Parcialmente Implementado
 
+**Métricas de Negócio**
+- Contagem básica de pedidos processados
+- Status de pedidos (criados, processados, falhas)
 
-**Observação**: A implementação atual se baseia principalmente em logs para monitoramento, mas, basta aumentar a cobertura, fiz apenas um exemplo mas entendo como implementar mais métricas.
+**Health Checks**
+- Verificação de conectividade com o banco de dados
+- Status básico da aplicação
+
+#### 🚀 Melhorias Planejadas
+
+**Métricas Avançadas**
+```csharp
+// Exemplo de métricas personalizadas que podem ser adicionadas
+var ordersProcessed = meter.CreateCounter<long>("orders_processed_total", "Número de pedidos processados");
+var orderProcessingTime = meter.CreateHistogram<double>("order_processing_seconds", "Tempo de processamento dos pedidos");
+```
+
+**Integrações**
+- Alertas no Grafana para métricas críticas
+- Notificações via Slack/Email para incidentes
+- Métricas customizadas para o domínio de negócio
+
+**Observabilidade**
+- Traces distribuídos com OpenTelemetry
+- Logs estruturados em JSON
+- Rastreamento de requisições entre serviços
+
+**Monitoramento de Dependências**
+- Health checks para RabbitMQ
+- Verificação de conectividade com APIs externas
+- Métricas de latência de rede
+
+#### 📈 Próximos Passos
+
+1. **Métricas de Negócio**
+   - Taxa de conversão de pedidos
+   - Tempo médio de processamento por distribuidor
+   - Taxa de falhas por tipo de operação
+
+2. **Resiliência**
+   - Circuit breaker para dependências externas
+   - Métricas de retry/backoff
+   - Timeouts configuráveis
+
+3. **Observabilidade**
+   - Correlação de logs com traces
+   - Análise de causa raiz automatizada
+   - Dashboards específicos por equipe
+
+**Nota Técnica**: A arquitetura atual foi projetada para ser extensível, permitindo a adição de novas métricas e fontes de dados com mínimo esforço. A estrutura de monitoramento pode ser expandida para incluir APM, rastreamento distribuído e análise de logs avançada conforme necessário.
 
 ### Tratamento de Indisponibilidade da API Externa
 
